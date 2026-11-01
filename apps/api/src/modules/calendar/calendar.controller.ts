@@ -35,3 +35,4 @@ export class CalendarController {
     return this.calendarService.updateStatus(businessId, contentId, dto.status);
   }
 }
+

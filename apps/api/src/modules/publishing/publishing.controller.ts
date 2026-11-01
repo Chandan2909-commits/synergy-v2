@@ -64,3 +64,4 @@ export class PublishingController {
     return this.publishingService.getPublishingLogs(businessId, scheduledPostId);
   }
 }
+

@@ -8,6 +8,7 @@ import { ContentModule } from './modules/content/content.module';
 import { SocialModule } from './modules/social/social.module';
 import { PublishingModule } from './modules/publishing/publishing.module';
 import { CalendarModule } from './modules/calendar/calendar.module';
+import { OrchestrationModule } from './modules/orchestration/orchestration.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { CalendarModule } from './modules/calendar/calendar.module';
     SocialModule,
     PublishingModule,
     CalendarModule,
+    OrchestrationModule,
   ],
 })
 export class AppModule {}
