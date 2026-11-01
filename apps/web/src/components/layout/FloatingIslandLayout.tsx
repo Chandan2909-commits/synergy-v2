@@ -1,12 +1,35 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import { Topbar } from '@/components/topbar/Topbar';
 import { Sidebar } from '@/components/sidebar/Sidebar';
 import { CommandPaletteModal } from '@/components/command/CommandPaletteModal';
 import { CreateBusinessModal } from '@/components/business/CreateBusinessModal';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
 
 export function FloatingIslandLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const { isAuthenticated } = useWorkspaceStore();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const isAuthPage = pathname === '/login' || pathname === '/signup';
+
+  useEffect(() => {
+    if (mounted && !isAuthenticated && !isAuthPage) {
+      router.push('/login');
+    }
+  }, [mounted, isAuthenticated, isAuthPage, router]);
+
+  if (isAuthPage) {
+    return <div className="min-h-screen w-full bg-slate-50">{children}</div>;
+  }
+
   return (
     <div className="flex flex-col h-screen w-screen bg-bg-app relative overflow-hidden select-none">
       {/* 1. Full-Width Sticky Floating Topbar */}
@@ -32,4 +55,3 @@ export function FloatingIslandLayout({ children }: { children: React.ReactNode }
     </div>
   );
 }
-

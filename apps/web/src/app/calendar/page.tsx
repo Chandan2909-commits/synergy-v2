@@ -23,56 +23,14 @@ export default function CalendarPage() {
 
   const [currentView, setCurrentView] = useState<'month' | 'week'>('month');
 
-  const scheduledEvents = [
-    {
-      id: 'e-1',
-      day: 3,
-      platform: 'instagram',
-      title: '7 Benefits of AI Marketing Automation',
-      time: '16:00',
-      status: 'scheduled',
-    },
-    {
-      id: 'e-2',
-      day: 5,
-      platform: 'linkedin',
-      title: 'Decoupling Strategy from Execution in SaaS',
-      time: '09:30',
-      status: 'approved',
-    },
-    {
-      id: 'e-3',
-      day: 7,
-      platform: 'x',
-      title: '5 Lessons scaling to $50k MRR without ads',
-      time: '14:15',
-      status: 'pending_approval',
-    },
-    {
-      id: 'e-4',
-      day: 10,
-      platform: 'instagram',
-      title: 'Customer Showcase: Aura Apparel Autumn Drop',
-      time: '18:00',
-      status: 'scheduled',
-    },
-    {
-      id: 'e-5',
-      day: 12,
-      platform: 'linkedin',
-      title: 'How Multi-Tenant AI Workforces Replace Generic Tools',
-      time: '11:00',
-      status: 'draft',
-    },
-    {
-      id: 'e-6',
-      day: 15,
-      platform: 'x',
-      title: 'The future of autonomous publishing is deterministic queues',
-      time: '15:30',
-      status: 'scheduled',
-    },
-  ];
+  const scheduledEvents: Array<{
+    id: string;
+    day: number;
+    platform: string;
+    title: string;
+    time: string;
+    status: string;
+  }> = [];
 
   const daysInMonth = Array.from({ length: 30 }, (_, i) => i + 1);
 

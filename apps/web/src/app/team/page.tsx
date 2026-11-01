@@ -7,40 +7,16 @@ import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { ROLE_LABELS } from '@synergy/shared';
 
 export default function TeamPage() {
-  const { getCurrentBusiness } = useWorkspaceStore();
+  const { getCurrentBusiness, currentUser } = useWorkspaceStore();
   const business = getCurrentBusiness();
 
   const members = [
     {
-      id: 'm-1',
-      name: 'Alex Vance',
-      email: 'alex@crosstech.io',
-      role: 'super_admin',
-      assignedWorkspaces: 'All Businesses',
-      status: 'Active',
-    },
-    {
-      id: 'm-2',
-      name: 'Elena Rostova',
-      email: 'elena@aura-apparel.com',
-      role: 'business_admin',
-      assignedWorkspaces: 'Aura Apparel',
-      status: 'Active',
-    },
-    {
-      id: 'm-3',
-      name: 'Marcus Chen',
-      email: 'marcus@crosstech.io',
-      role: 'marketing_manager',
-      assignedWorkspaces: 'Aura Apparel, Novacode SaaS',
-      status: 'Active',
-    },
-    {
-      id: 'm-4',
-      name: 'Sarah Jenkins',
-      email: 'sarah@creatives.io',
-      role: 'designer',
-      assignedWorkspaces: 'Aura Apparel',
+      id: currentUser.id,
+      name: currentUser.fullName,
+      email: currentUser.email,
+      role: currentUser.role,
+      assignedWorkspaces: 'All Workspaces',
       status: 'Active',
     },
   ];

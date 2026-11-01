@@ -43,51 +43,51 @@ export default function SettingsPage() {
 
   // Brand Kit State (now with brand icon & logo)
   const [brandKit, setBrandKit] = useState({
-    brandName: business?.name || 'Aura Apparel',
-    tagline: 'Sustainable Luxury & Conscious Streetwear',
-    websiteUrl: 'https://aura-apparel.example.com',
-    iconUrl: 'https://api.dicebear.com/7.x/identicon/svg?seed=AuraIcon',
-    logoUrl: 'https://api.dicebear.com/7.x/shapes/svg?seed=AuraLogo',
+    brandName: business?.name || 'CrossTech',
+    tagline: '',
+    websiteUrl: '',
+    iconUrl: '',
+    logoUrl: '',
     primaryColor: '#1e1e1e',
     secondaryColor: '#f4f5f7',
     accentColor: '#1d4ed8',
     backgroundColor: '#ffffff',
     headingFont: 'Montserrat',
     bodyFont: 'Inter',
-    brandVoice: ['Visionary', 'Minimalist', 'Data-Driven', 'Conscious'],
-    targetAudience: 'Urban professionals aged 24-40 interested in high-aesthetic ethical fashion.',
-    contentRestrictions: ['Never use cringe clickbait', 'No fake discounts', 'Avoid over-promising'],
+    brandVoice: ['Innovative', 'Professional', 'Data-Driven'],
+    targetAudience: '',
+    contentRestrictions: [] as string[],
   });
 
   // Social Platform API Credentials State
   const [socialCreds, setSocialCreds] = useState({
     instagram: {
-      appId: '109283749201948',
-      appSecret: 'a8f93bc01d948271e8470129bcfe91',
-      accessToken: 'EAABwz9842...longLivedMetaToken...K92',
-      accountId: 'ig_948271048',
-      accountName: '@aura.apparel.official',
-      isConnected: true,
-      lastSync: 'Just now',
+      appId: '',
+      appSecret: '',
+      accessToken: '',
+      accountId: '',
+      accountName: '',
+      isConnected: false,
+      lastSync: 'Never',
     },
     linkedin: {
-      clientId: '86xy948201klmn',
-      clientSecret: 'WXYZ98172034981273948123',
-      accessToken: 'AQV...linkedInOAuth2Token...X9',
-      orgUrn: 'urn:li:organization:849204',
-      accountName: 'Aura Apparel Global Inc.',
-      isConnected: true,
-      lastSync: '12m ago',
+      clientId: '',
+      clientSecret: '',
+      accessToken: '',
+      orgUrn: '',
+      accountName: '',
+      isConnected: false,
+      lastSync: 'Never',
     },
     x: {
-      apiKey: 'CONSUMER_KEY_X_9921',
-      apiSecret: 'CONSUMER_SECRET_X_88192039',
-      clientId: 'CLIENT_ID_X_OAuth2',
-      clientSecret: 'CLIENT_SECRET_X_OAuth2',
-      accessToken: 'AAAAAAAAAAAAAAAAAAAA...bearerToken...981',
-      accountName: '@AuraApparelHQ',
-      isConnected: true,
-      lastSync: '45m ago',
+      apiKey: '',
+      apiSecret: '',
+      clientId: '',
+      clientSecret: '',
+      accessToken: '',
+      accountName: '',
+      isConnected: false,
+      lastSync: 'Never',
     },
   });
 
@@ -240,7 +240,7 @@ export default function SettingsPage() {
                     <label className="settings-label">Brand Name *</label>
                     <input
                       type="text"
-                      placeholder="e.g. Aura Apparel"
+                      placeholder="e.g. CrossTech"
                       value={brandKit.brandName}
                       onChange={(e) => setBrandKit({ ...brandKit, brandName: e.target.value })}
                       className="settings-input"

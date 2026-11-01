@@ -2,10 +2,12 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Layers, ChevronDown, Bell, LogOut, Plus, Check, Building2 } from 'lucide-react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 
 export function Topbar() {
+  const router = useRouter();
   const {
     currentOrganization,
     currentUser,
@@ -14,6 +16,7 @@ export function Topbar() {
     switchBusiness,
     isTopbarLoading,
     setCreateBusinessModalOpen,
+    logout,
   } = useWorkspaceStore();
 
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -183,7 +186,11 @@ export function Topbar() {
           <button
             type="button"
             title="Logout"
-            className="text-slate-400 hover:text-slate-700 transition-colors ml-0.5"
+            onClick={() => {
+              logout();
+              router.push('/login');
+            }}
+            className="text-slate-400 hover:text-red-600 transition-colors ml-0.5 cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5" />
           </button>
