@@ -26,9 +26,7 @@ export default function ContentStudioPage() {
   const { getCurrentBusiness, setTopbarLoading } = useWorkspaceStore();
   const business = getCurrentBusiness();
 
-  const [promptObjective, setPromptObjective] = useState(
-    'Create an educational 5-slide carousel explaining how AI marketing automation frees up 15+ hours weekly for founders without sacrificing brand voice.'
-  );
+  const [promptObjective, setPromptObjective] = useState('');
   const [selectedPlatforms, setSelectedPlatforms] = useState<SocialPlatform[]>([
     'instagram',
     'linkedin',
@@ -40,47 +38,9 @@ export default function ContentStudioPage() {
     {
       id: 's-1',
       slideNumber: 1,
-      headline: 'The 15-Hour Founder Tax',
-      bodyText:
-        'Founders spend an average of 15-20 hours every week writing posts, resizing images, and manually scheduling content across disconnected platforms.',
-      callToAction: 'Swipe to see the fix →',
-      backgroundColor: '#111827',
-      textColor: '#ffffff',
-    },
-    {
-      id: 's-2',
-      slideNumber: 2,
-      headline: '01. Marketing Strategy on Autopilot',
-      bodyText:
-        'Instead of staring at a blank screen on Monday, your AI Strategist digests audience signals and prepares structured content pillars aligned to revenue.',
-      backgroundColor: '#172554',
-      textColor: '#ffffff',
-    },
-    {
-      id: 's-3',
-      slideNumber: 3,
-      headline: '02. Platform Adaptation Matters',
-      bodyText:
-        'Never duplicate text blindly. A high-performing LinkedIn post fails on Instagram without visual carousels, and flops on X without concise punchlines.',
-      backgroundColor: '#0f172a',
-      textColor: '#ffffff',
-    },
-    {
-      id: 's-4',
-      slideNumber: 4,
-      headline: '03. Deterministic Safety Gates',
-      bodyText:
-        'AI drafts the content, but your Brand Kit rules and QA Agent check every post before a single byte hits official social APIs.',
-      backgroundColor: '#1e1e1e',
-      textColor: '#ffffff',
-    },
-    {
-      id: 's-5',
-      slideNumber: 5,
-      headline: 'Scale Your Brand with Synergy',
-      bodyText:
-        'One workspace. Multiple businesses. An entire autonomous AI marketing workforce operating 24/7 on your terms.',
-      callToAction: 'Get Started Today • Link in Bio',
+      headline: 'Slide 1 Headline',
+      bodyText: 'Enter your slide body text here or describe your topic in the prompt box above and click "Generate with AI".',
+      callToAction: 'Learn more →',
       backgroundColor: '#111827',
       textColor: '#ffffff',
     },
