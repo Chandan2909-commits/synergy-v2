@@ -39,3 +39,4 @@ export function maskApiKey(key: string): string {
   const suffix = key.substring(key.length - 4);
   return `${prefix}••••••••••••••••${suffix}`;
 }
+

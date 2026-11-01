@@ -52,3 +52,4 @@ export class OllamaProvider implements AIProviderAdapter {
     };
   }
 }
+

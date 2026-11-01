@@ -85,6 +85,7 @@ model Business {
   contents       Content[]
   workflows      AutomationWorkflow[]
   analytics      AnalyticsSnapshot[]
+  mediaAssets    MediaAsset[]
 
   @@unique([organizationId, slug])
 }
@@ -251,7 +252,8 @@ model CarouselSlide {
 }
 
 model MediaAsset {
-  id           String   @id @default(uuid())
+  id           String    @id @default(uuid())
+  businessId   String?
   contentId    String?
   url          String
   fileType     String   // image/png, video/mp4
@@ -260,7 +262,8 @@ model MediaAsset {
   height       Int?
   createdAt    DateTime @default(now())
 
-  content      Content? @relation(fields: [contentId], references: [id], onDelete: SetNull)
+  business     Business? @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  content      Content?  @relation(fields: [contentId], references: [id], onDelete: SetNull)
 }
 
 model ScheduledPost {

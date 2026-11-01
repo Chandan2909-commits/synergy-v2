@@ -24,3 +24,4 @@ import { TenantGuard } from '../../common/guards/tenant.guard';
   exports: [AIService, AIProviderFactory],
 })
 export class AIModule {}
+

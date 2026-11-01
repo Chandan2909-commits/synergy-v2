@@ -40,3 +40,4 @@ export class ExecuteQADto {
   caption!: string;
   hashtags?: string[];
 }
+
