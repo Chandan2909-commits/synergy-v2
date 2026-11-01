@@ -6,6 +6,8 @@ import { AuthModule } from './modules/auth/auth.module';
 import { AIModule } from './modules/ai/ai.module';
 import { ContentModule } from './modules/content/content.module';
 import { SocialModule } from './modules/social/social.module';
+import { PublishingModule } from './modules/publishing/publishing.module';
+import { CalendarModule } from './modules/calendar/calendar.module';
 
 @Module({
   imports: [
@@ -19,6 +21,8 @@ import { SocialModule } from './modules/social/social.module';
     AIModule,
     ContentModule,
     SocialModule,
+    PublishingModule,
+    CalendarModule,
   ],
 })
 export class AppModule {}

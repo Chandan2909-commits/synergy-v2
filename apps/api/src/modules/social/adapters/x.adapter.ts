@@ -249,3 +249,4 @@ export class XAdapter extends BaseSocialAdapter {
     };
   }
 }
+

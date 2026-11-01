@@ -43,3 +43,4 @@ export abstract class BaseSocialAdapter implements SocialPlatformAdapter {
     );
   }
 }
+

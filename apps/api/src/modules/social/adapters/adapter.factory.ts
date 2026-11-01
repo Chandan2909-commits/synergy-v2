@@ -27,3 +27,4 @@ export class SocialAdapterFactory {
     return adapter;
   }
 }
+

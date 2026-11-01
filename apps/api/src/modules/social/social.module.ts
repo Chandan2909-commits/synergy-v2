@@ -22,3 +22,4 @@ import { XAdapter } from './adapters/x.adapter';
   exports: [SocialService, SocialAdapterFactory],
 })
 export class SocialModule {}
+

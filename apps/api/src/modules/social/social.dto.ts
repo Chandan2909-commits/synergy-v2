@@ -35,3 +35,4 @@ export class PublishNowDto {
   platform!: SocialPlatform;
   socialAccountId?: string;
 }
+

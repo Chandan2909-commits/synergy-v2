@@ -102,4 +102,18 @@
 - Enforced strict multi-tenant boundary checks on all social accounts and publishing operations.
 - Automated verification test suite `scripts/test-phase5.js` executed with 28/28 tests passing (100%), bringing cumulative passing tests across all phases to 86/86 (100%).
 
+### Phase 6 - Content Calendar and Publishing Engine (Completed: 2026-11-01)
+- Built `PublishingModule` with `PublishingService`, `PublishingScheduler`, and `PublishingController`:
+  - Implemented deterministic idempotency keys (`idemp_{contentId}_{socialAccountId}_{timestamp}`) preventing duplicate scheduling or double-posting.
+  - Implemented background publishing scheduler polling every 5s with missed-job recovery on startup.
+  - Implemented execution lock acquisition (`status: 'publishing'`), platform adapter dispatch, and `PublishingLog` recording (status code, external post ID, response payload).
+  - Implemented exponential backoff ($2^{\text{attempt}-1} \times 60$s) capping at max 3 retries before marking `failed`.
+  - Implemented state reconciliation before retrying to prevent duplicating already-published external posts.
+- Built `CalendarModule` with `CalendarService` and `CalendarController`:
+  - Calendar feed endpoint with monthly, weekly, and daily view aggregation in business timezone.
+  - Implemented post status state machine per Section 6.2 enforcing valid status transitions (`IDEA` → `PLANNED` → `DRAFT` → `PENDING_APPROVAL` → `APPROVED` → `SCHEDULED` → `PUBLISHING` → `PUBLISHED` / `FAILED` / `CANCELLED`).
+  - Implemented drag-and-drop rescheduling (`POST /publishing/scheduled/:id/reschedule`) and cancellation APIs.
+- Automated verification test suite `scripts/test-phase6.js` executed with 26/26 tests passing (100%), bringing cumulative passing tests across all phases to 112/112 (100%).
+
+
 
