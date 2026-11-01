@@ -14,6 +14,7 @@ const testSuites = [
   { phase: 'Phase 7: Agentic Orchestration & Workflows', script: 'scripts/test-phase7.js' },
   { phase: 'Phase 8: MVP Analytics', script: 'scripts/test-phase8.js' },
   { phase: 'Phase 9: Team Collaboration & MVP Completion', script: 'scripts/test-phase9.js' },
+  { phase: 'Phase 10: Persona Keys, Brand Icon & Platform Credentials', script: 'scripts/test-persona-keys-brand-icon.js' },
 ];
 
 console.log('======================================================================');
@@ -53,3 +54,4 @@ console.log('===================================================================
 if (!allPassed) {
   process.exit(1);
 }
+

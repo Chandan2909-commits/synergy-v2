@@ -13,3 +13,4 @@ import { TenantGuard } from '../../common/guards/tenant.guard';
   exports: [TeamService],
 })
 export class TeamModule {}
+

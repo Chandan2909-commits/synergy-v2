@@ -342,3 +342,147 @@
   margin-bottom: 24px;
 }
 
+/* ============================================================
+   SETTINGS & FORM CONTROLS (CRISP VISIBLE BORDERS & CONTRAST)
+   ============================================================ */
+.settings-label,
+.form-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: #374151;
+  margin-bottom: 6px;
+  text-transform: capitalize;
+  letter-spacing: -0.01em;
+}
+
+.settings-input,
+.form-input {
+  width: 100%;
+  height: 42px;
+  padding: 0 14px;
+  background-color: #ffffff !important;
+  border: 1.5px solid #d1d5db !important;
+  border-radius: 8px !important;
+  font-size: 13px !important;
+  color: #111827 !important;
+  font-weight: 500 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease !important;
+  outline: none !important;
+  display: block;
+}
+
+.settings-input:focus,
+.form-input:focus {
+  border-color: #1d4ed8 !important;
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.15) !important;
+  background-color: #ffffff !important;
+}
+
+.settings-input:hover:not(:disabled):not(:focus),
+.form-input:hover:not(:disabled):not(:focus) {
+  border-color: #9ca3af !important;
+}
+
+.settings-input:disabled,
+.form-input:disabled {
+  background-color: #f3f4f6 !important;
+  color: #6b7280 !important;
+  cursor: not-allowed !important;
+  border-color: #e5e7eb !important;
+}
+
+.settings-textarea,
+.form-textarea {
+  width: 100%;
+  padding: 10px 14px;
+  background-color: #ffffff !important;
+  border: 1.5px solid #d1d5db !important;
+  border-radius: 8px !important;
+  font-size: 13px !important;
+  color: #111827 !important;
+  font-weight: 500 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease !important;
+  outline: none !important;
+  min-height: 80px;
+  display: block;
+  resize: vertical;
+}
+
+.settings-textarea:focus,
+.form-textarea:focus {
+  border-color: #1d4ed8 !important;
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.15) !important;
+  background-color: #ffffff !important;
+}
+
+.settings-textarea:hover:not(:disabled):not(:focus),
+.form-textarea:hover:not(:disabled):not(:focus) {
+  border-color: #9ca3af !important;
+}
+
+.settings-select,
+.form-select {
+  width: 100%;
+  height: 42px;
+  padding: 0 14px;
+  background-color: #ffffff !important;
+  border: 1.5px solid #d1d5db !important;
+  border-radius: 8px !important;
+  font-size: 13px !important;
+  color: #111827 !important;
+  font-weight: 500 !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+  outline: none !important;
+  cursor: pointer;
+}
+
+.settings-select:focus,
+.form-select:focus {
+  border-color: #1d4ed8 !important;
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.15) !important;
+}
+
+.settings-grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+/* Base safeguard for inputs across the app to guarantee visible borders and editable affordance */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([class*="border-none"]):not([class*="bg-transparent"]):not([class*="border-0"]) {
+  border: 1.5px solid #d1d5db;
+  border-radius: 8px;
+  padding: 8px 12px;
+  background-color: #ffffff;
+  color: #111827;
+  font-size: 13px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([class*="border-none"]):not([class*="bg-transparent"]):not([class*="border-0"]):focus {
+  border-color: #1d4ed8;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.15);
+}
+
+textarea:not([class*="border-none"]):not([class*="bg-transparent"]):not([class*="border-0"]) {
+  border: 1.5px solid #d1d5db;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background-color: #ffffff;
+  color: #111827;
+  font-size: 13px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+textarea:not([class*="border-none"]):not([class*="bg-transparent"]):not([class*="border-0"]):focus {
+  border-color: #1d4ed8;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.15);
+}
+

@@ -49,6 +49,12 @@ export class SocialService {
         tokenPreview: acc.credential
           ? maskApiKey(decrypt(acc.credential.accessTokenEnc))
           : undefined,
+        apiKeyPreview: acc.credential?.apiKeyEnc
+          ? maskApiKey(decrypt(acc.credential.apiKeyEnc))
+          : undefined,
+        clientIdPreview: acc.credential?.clientIdEnc
+          ? maskApiKey(decrypt(acc.credential.clientIdEnc))
+          : undefined,
       };
     });
   }
@@ -67,6 +73,10 @@ export class SocialService {
 
     const encAccessToken = encrypt(dto.accessToken);
     const encRefreshToken = dto.refreshToken ? encrypt(dto.refreshToken) : null;
+    const encApiKey = dto.apiKey ? encrypt(dto.apiKey) : null;
+    const encApiSecret = dto.apiSecret ? encrypt(dto.apiSecret) : null;
+    const encClientId = dto.clientId ? encrypt(dto.clientId) : null;
+    const encClientSecret = dto.clientSecret ? encrypt(dto.clientSecret) : null;
 
     // Check if account already exists for this business + platform + platformAccountId
     const existing = await this.prisma.socialAccount.findFirst({
@@ -96,11 +106,19 @@ export class SocialService {
         update: {
           accessTokenEnc: encAccessToken,
           refreshTokenEnc: encRefreshToken,
+          apiKeyEnc: encApiKey,
+          apiSecretEnc: encApiSecret,
+          clientIdEnc: encClientId,
+          clientSecretEnc: encClientSecret,
         },
         create: {
           socialAccountId: account.id,
           accessTokenEnc: encAccessToken,
           refreshTokenEnc: encRefreshToken,
+          apiKeyEnc: encApiKey,
+          apiSecretEnc: encApiSecret,
+          clientIdEnc: encClientId,
+          clientSecretEnc: encClientSecret,
         },
       });
     } else {
@@ -119,6 +137,10 @@ export class SocialService {
             create: {
               accessTokenEnc: encAccessToken,
               refreshTokenEnc: encRefreshToken,
+              apiKeyEnc: encApiKey,
+              apiSecretEnc: encApiSecret,
+              clientIdEnc: encClientId,
+              clientSecretEnc: encClientSecret,
             },
           },
         },

@@ -67,6 +67,10 @@ export class AIService implements OnModuleInit {
       model: p.defaultModel,
       temperature: p.defaultTemperature,
       systemInstructions: p.systemInstructions,
+      monthlySpendLimitUsd: p.monthlySpendLimitUsd ?? 100,
+      isEnabled: p.isEnabled ?? true,
+      hasApiKey: !!p.apiKeyEnc,
+      apiKeyPreview: p.apiKeyEnc ? maskApiKey(decrypt(p.apiKeyEnc)) : undefined,
     }));
   }
 
@@ -79,17 +83,39 @@ export class AIService implements OnModuleInit {
       throw new NotFoundException(`Persona ${role} not found.`);
     }
 
+    const updateData: any = {};
+    if (dto.provider !== undefined) updateData.defaultProvider = dto.provider;
+    if (dto.model !== undefined) updateData.defaultModel = dto.model;
+    if (dto.temperature !== undefined) updateData.defaultTemperature = dto.temperature;
+    if (dto.systemInstructions !== undefined) updateData.systemInstructions = dto.systemInstructions;
+    if (dto.monthlySpendLimitUsd !== undefined) updateData.monthlySpendLimitUsd = dto.monthlySpendLimitUsd;
+    if (dto.isEnabled !== undefined) updateData.isEnabled = dto.isEnabled;
+    if (dto.apiKey) {
+      updateData.apiKeyEnc = encrypt(dto.apiKey);
+    }
+
     const updated = await this.prisma.aIPersona.update({
       where: { role },
-      data: {
-        defaultProvider: dto.provider,
-        defaultModel: dto.model,
-        defaultTemperature: dto.temperature,
-        systemInstructions: dto.systemInstructions,
-      },
+      data: updateData,
     });
 
-    return updated;
+    return {
+      id: updated.id,
+      role: updated.role,
+      name: updated.name,
+      description: updated.description,
+      provider: updated.defaultProvider,
+      defaultProvider: updated.defaultProvider,
+      model: updated.defaultModel,
+      defaultModel: updated.defaultModel,
+      temperature: updated.defaultTemperature,
+      defaultTemperature: updated.defaultTemperature,
+      systemInstructions: updated.systemInstructions,
+      monthlySpendLimitUsd: updated.monthlySpendLimitUsd ?? 100,
+      isEnabled: updated.isEnabled ?? true,
+      hasApiKey: !!updated.apiKeyEnc,
+      apiKeyPreview: updated.apiKeyEnc ? maskApiKey(decrypt(updated.apiKeyEnc)) : undefined,
+    };
   }
 
   async testConnection(dto: TestConnectionDto): Promise<{ success: boolean; message: string }> {
@@ -119,6 +145,8 @@ export class AIService implements OnModuleInit {
       brandName: bk.brandName,
       tagline: bk.tagline || '',
       websiteUrl: bk.websiteUrl || '',
+      logoUrl: bk.logoUrl || '',
+      iconUrl: bk.iconUrl || '',
       colors: {
         primary: bk.primaryColor,
         secondary: bk.secondaryColor,

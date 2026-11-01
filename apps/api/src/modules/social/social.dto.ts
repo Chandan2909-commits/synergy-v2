@@ -9,6 +9,10 @@ export class ConnectAccountDto {
   refreshToken?: string;
   tokenExpiresAt?: string;
   permissions?: string[];
+  apiKey?: string;
+  apiSecret?: string;
+  clientId?: string;
+  clientSecret?: string;
 }
 
 export class OAuthCallbackDto {

@@ -170,7 +170,7 @@ export default function ContentStudioPage() {
               rows={3}
               value={promptObjective}
               onChange={(e) => setPromptObjective(e.target.value)}
-              className="w-full p-3 bg-slate-50 border border-border rounded-sm text-[13px] text-neutral-900 focus:bg-white focus:border-blue-600 outline-none transition-all resize-none font-medium leading-relaxed"
+              className="w-full p-3.5 bg-white border border-slate-300 rounded-lg text-[13px] text-neutral-900 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all resize-none font-medium leading-relaxed shadow-sm"
               placeholder="Describe what content concept you want to create..."
             />
 
@@ -226,7 +226,7 @@ export default function ContentStudioPage() {
                 type="text"
                 value={currentSlide.headline}
                 onChange={(e) => updateCurrentSlide('headline', e.target.value)}
-                className="w-full h-9 px-3 bg-slate-50 border border-border rounded-sm text-sm text-neutral-900 font-bold focus:bg-white focus:border-blue-600 outline-none"
+                className="w-full h-10 px-3.5 bg-white border border-slate-300 rounded-lg text-sm text-neutral-900 font-bold focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 outline-none shadow-sm"
               />
             </div>
 
@@ -238,7 +238,7 @@ export default function ContentStudioPage() {
                 rows={3}
                 value={currentSlide.bodyText}
                 onChange={(e) => updateCurrentSlide('bodyText', e.target.value)}
-                className="w-full p-2.5 bg-slate-50 border border-border rounded-sm text-[13px] text-neutral-800 focus:bg-white focus:border-blue-600 outline-none resize-none leading-relaxed"
+                className="w-full p-3 bg-white border border-slate-300 rounded-lg text-[13px] text-neutral-800 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 outline-none resize-none leading-relaxed shadow-sm"
               />
             </div>
 
@@ -251,7 +251,7 @@ export default function ContentStudioPage() {
                 value={currentSlide.callToAction || ''}
                 onChange={(e) => updateCurrentSlide('callToAction', e.target.value)}
                 placeholder="e.g. Swipe to learn more →"
-                className="w-full h-8 px-3 bg-slate-50 border border-border rounded-sm text-xs text-neutral-800 focus:bg-white focus:border-blue-600 outline-none"
+                className="w-full h-10 px-3.5 bg-white border border-slate-300 rounded-lg text-xs text-neutral-800 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 outline-none shadow-sm"
               />
             </div>
 

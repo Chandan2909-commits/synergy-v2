@@ -333,6 +333,7 @@ export class AuthService {
         tagline: dto.tagline,
         websiteUrl: dto.websiteUrl,
         logoUrl: dto.logoUrl,
+        iconUrl: dto.iconUrl,
         primaryColor: dto.primaryColor,
         secondaryColor: dto.secondaryColor,
         accentColor: dto.accentColor,

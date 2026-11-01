@@ -30,6 +30,7 @@ export class UpdateBrandKitDto {
   tagline?: string;
   websiteUrl?: string;
   logoUrl?: string;
+  iconUrl?: string;
   primaryColor?: string;
   secondaryColor?: string;
   accentColor?: string;

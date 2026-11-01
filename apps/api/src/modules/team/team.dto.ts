@@ -17,3 +17,4 @@ export class ApprovalActionDto {
   reason?: string;
   autoSchedule?: boolean;
 }
+

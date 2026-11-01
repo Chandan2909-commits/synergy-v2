@@ -76,7 +76,7 @@ export function CreateBusinessModal() {
               placeholder="e.g. Lumina Health, Quantum Robotics"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full h-10 px-3.5 bg-slate-50 border border-border rounded-sm text-sm text-neutral-900 focus:bg-white focus:border-blue-600 focus:ring-2 focus:ring-blue-100 outline-none transition-all"
+              className="w-full h-10 px-3.5 bg-white border border-slate-300 rounded-lg text-sm text-neutral-900 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all shadow-sm"
             />
           </div>
 
@@ -90,7 +90,7 @@ export function CreateBusinessModal() {
                 placeholder="e.g. B2B SaaS, E-Commerce"
                 value={industry}
                 onChange={(e) => setIndustry(e.target.value)}
-                className="w-full h-10 px-3.5 bg-slate-50 border border-border rounded-sm text-sm text-neutral-900 focus:bg-white focus:border-blue-600 outline-none transition-all"
+                className="w-full h-10 px-3.5 bg-white border border-slate-300 rounded-lg text-sm text-neutral-900 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all shadow-sm"
               />
             </div>
 
@@ -101,7 +101,7 @@ export function CreateBusinessModal() {
               <select
                 value={timezone}
                 onChange={(e) => setTimezone(e.target.value)}
-                className="w-full h-10 px-3 bg-slate-50 border border-border rounded-sm text-sm text-neutral-900 focus:bg-white focus:border-blue-600 outline-none transition-all"
+                className="w-full h-10 px-3 bg-white border border-slate-300 rounded-lg text-sm text-neutral-900 focus:border-blue-600 outline-none transition-all shadow-sm cursor-pointer"
               >
                 <option value="America/New_York">Eastern Time (US)</option>
                 <option value="America/Chicago">Central Time (US)</option>
@@ -123,7 +123,7 @@ export function CreateBusinessModal() {
               placeholder="Brief summary of what this business does and target market..."
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full p-3 bg-slate-50 border border-border rounded-sm text-sm text-neutral-900 focus:bg-white focus:border-blue-600 outline-none transition-all resize-none"
+              className="w-full p-3 bg-white border border-slate-300 rounded-lg text-sm text-neutral-900 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all resize-none shadow-sm"
             />
           </div>
 

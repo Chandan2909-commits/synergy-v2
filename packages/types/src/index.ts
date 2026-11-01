@@ -51,6 +51,7 @@ export interface BrandKit {
   tagline?: string;
   websiteUrl?: string;
   logoUrl?: string;
+  iconUrl?: string;
   colors: {
     primary: string;
     secondary: string;
