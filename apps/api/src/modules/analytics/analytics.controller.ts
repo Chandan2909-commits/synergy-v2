@@ -47,3 +47,4 @@ export class AnalyticsController {
     return this.analyticsService.getInsights(businessId);
   }
 }
+

@@ -8,3 +8,4 @@ export class AnalyticsQueryDto {
 export class SyncAnalyticsDto {
   platform?: 'instagram' | 'linkedin' | 'x';
 }
+

@@ -12,3 +12,4 @@ import { TenantGuard } from '../../common/guards/tenant.guard';
   exports: [AnalyticsService],
 })
 export class AnalyticsModule {}
+

@@ -10,6 +10,7 @@ import { PublishingModule } from './modules/publishing/publishing.module';
 import { CalendarModule } from './modules/calendar/calendar.module';
 import { OrchestrationModule } from './modules/orchestration/orchestration.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { TeamModule } from './modules/team/team.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
     CalendarModule,
     OrchestrationModule,
     AnalyticsModule,
+    TeamModule,
   ],
 })
 export class AppModule {}

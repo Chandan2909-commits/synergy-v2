@@ -20,6 +20,8 @@ model User {
   businessMembers BusinessMember[]
   auditLogs    AuditLog[]
   invitations  Invitation[]
+  approvals    ContentApproval[]
+  notifications Notification[]
 }
 
 model Organization {
@@ -218,6 +220,7 @@ model Content {
   carouselSlides   CarouselSlide[]
   mediaAssets      MediaAsset[]
   scheduledPosts   ScheduledPost[]
+  approvals        ContentApproval[]
 }
 
 model ContentVariant {
@@ -347,13 +350,40 @@ model AnalyticsSnapshot {
 }
 
 model AuditLog {
-  id         String   @id @default(uuid())
-  userId     String?
-  action     String
-  resource   String
-  resourceId String?
+  id          String   @id @default(uuid())
+  businessId  String?
+  userId      String?
+  action      String
+  resource    String
+  resourceId  String?
   detailsJson String?
-  timestamp  DateTime @default(now())
+  timestamp   DateTime @default(now())
 
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model ContentApproval {
+  id         String   @id @default(uuid())
+  contentId  String
+  userId     String?
+  action     String   // submitted, approved, rejected, changes_requested
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  content    Content  @relation(fields: [contentId], references: [id], onDelete: Cascade)
   user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 }
+
+model Notification {
+  id         String   @id @default(uuid())
+  userId     String
+  businessId String?
+  type       String   // approval_required, content_approved, publishing_failed, publishing_succeeded
+  title      String
+  message    String
+  read       Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
