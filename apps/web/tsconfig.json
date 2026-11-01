@@ -19,7 +19,10 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@synergy/types": ["../../packages/types/src/index.ts"],
+      "@synergy/shared": ["../../packages/shared/src/index.ts"],
+      "@synergy/validation": ["../../packages/validation/src/index.ts"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
