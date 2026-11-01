@@ -1,0 +1,111 @@
+:root {
+  /* ============================================================
+     Surfaces & Canvas (Light Mode High Contrast - ONIX Executive)
+     ============================================================ */
+  --background: #ffffff;             /* Pure white base */
+  --foreground: #111827;             /* Near-black primary text */
+  --bg-app: #f8f9fa;                 /* Cool crisp light canvas */
+  --bg-surface: #ffffff;             /* Card surface */
+  --bg-surface-hover: #f4f5f7;       /* Interactive row hover */
+  --bg-sidebar: #ffffff;             /* Sidebar surface */
+
+  /* ============================================================
+     Brand & Contrast (Onyx Black Engine)
+     ============================================================ */
+  --primary: #1e1e1e;                /* Onyx Black (Brand Identity / Main CTAs) */
+  --primary-foreground: #ffffff;     /* Crisp white text on Onyx */
+  --secondary: #f4f5f7;              /* Light neutral fill */
+  --secondary-foreground: #1e1e1e;   /* Dark text on light buttons */
+  --color-brand: #1e1e1e;
+  --color-brand-hover: #111111;
+  --color-brand-light: #f4f5f7;
+  --color-brand-glow: rgba(0, 0, 0, 0.08);
+
+  /* ============================================================
+     The Single Surprise Highlight Accent (Sapphire / Royal Blue)
+     ============================================================ */
+  --color-accent: #1d4ed8;           /* Deep Blue highlight */
+  --color-accent-hover: #1e40af;     /* Hover state */
+  --color-accent-light: #eff6ff;     /* Soft blue background badge tint */
+  --color-accent-glow: rgba(29, 78, 216, 0.15);
+  --ring: #1d4ed8;                   /* Accessible focus ring */
+
+  /* ============================================================
+     Text Hierarchy
+     ============================================================ */
+  --text-primary: #111827;          /* H1-H4 & Primary table headers */
+  --text-secondary: #475569;        /* Slate 600 - Standard body text */
+  --text-muted: #6b7280;            /* Slate 500 - Subtitles & descriptions */
+  --text-disabled: #9ca3af;         /* Slate 400 - Disabled placeholders */
+  --text-inverse: #ffffff;          /* White text */
+
+  /* ============================================================
+     Borders & Dividers
+     ============================================================ */
+  --border: #e5e7eb;                /* Standard hairline border */
+  --border-subtle: #e5e7eb;
+  --border-strong: #d1d5db;         /* Active/hovered borders */
+  --input: #e5e7eb;
+
+  /* ============================================================
+     Status Indicators (Strictly Reserved for Status Badges)
+     ============================================================ */
+  --color-success: #10b981;         /* Emerald Green */
+  --color-success-light: #ecfdf5;
+  --color-warning: #f59e0b;         /* Amber Gold */
+  --color-warning-light: #fef3c7;
+  --color-danger: #ef4444;          /* Crimson Red */
+  --color-danger-light: #fee2e2;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --color-info: #1d4ed8;            /* Sky/Deep Blue */
+  --color-info-light: #eff6ff;
+
+  /* ============================================================
+     Geometry & Soft Radius Scale
+     ============================================================ */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 16px;                /* Standard card radius */
+  --radius: 16px;
+  --radius-lg: 24px;                /* Floating containers */
+  --radius-xl: 32px;
+  --radius-pill: 9999px;            /* Full capsule buttons & avatars */
+
+  /* ============================================================
+     Spacing Scale
+     ============================================================ */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* ============================================================
+     Ambient Multi-Stop Shadow System
+     ============================================================ */
+  --shadow-2xs: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+  --shadow-xs: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 2px 4px 0 rgba(15, 23, 42, 0.03);
+  --shadow-md: 0 8px 30px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.01);
+  --shadow-lg: 0 16px 40px rgba(15, 23, 42, 0.06), 0 4px 8px rgba(15, 23, 42, 0.02);
+  --shadow-xl: 0 32px 64px rgba(15, 23, 42, 0.08), 0 8px 16px rgba(15, 23, 42, 0.03);
+  --shadow-brand: 0 4px 12px rgba(0, 0, 0, 0.12);
+
+  /* ============================================================
+     Z-Index Hierarchy
+     ============================================================ */
+  --z-app: 1;
+  --z-sidebar: 10;
+  --z-topbar: 20;
+  --z-dropdown: 30;
+  --z-overlay: 9999;
+  --z-drawer: 10001;
+  --z-modal: 10002;
+  --z-toast: 10005;
+}
+

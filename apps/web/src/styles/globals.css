@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import './variables.css';
+@import './typography.css';
+@import './reset.css';
+@import './components.css';
+@import './animations.css';
+

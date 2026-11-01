@@ -1,0 +1,32 @@
+{
+  "name": "synergy-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Synergy - AI-Powered Marketing Operations Platform (CrossTech Solutions)",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspaces --if-present",
+    "dev:web": "npm run dev --workspace=@synergy/web",
+    "dev:api": "npm run dev --workspace=@synergy/api",
+    "dev:worker": "npm run dev --workspace=@synergy/worker",
+    "build": "npm run build --workspaces --if-present",
+    "build:web": "npm run build --workspace=@synergy/web",
+    "build:api": "npm run build --workspace=@synergy/api",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "clean": "npm run clean --workspaces --if-present"
+  },
+  "keywords": [
+    "marketing-automation",
+    "multi-tenant",
+    "ai-workforce",
+    "social-media",
+    "saas"
+  ],
+  "author": "CrossTech Solutions",
+  "license": "UNLICENSED"
+}
+

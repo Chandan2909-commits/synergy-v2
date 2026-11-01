@@ -1,0 +1,353 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String       @id @default(uuid())
+  email        String       @unique
+  passwordHash String
+  fullName     String
+  avatarUrl    String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  memberships  Membership[]
+  businessMembers BusinessMember[]
+  auditLogs    AuditLog[]
+  invitations  Invitation[]
+}
+
+model Organization {
+  id        String       @id @default(uuid())
+  name      String
+  slug      String       @unique
+  plan      String       @default("pro")
+  ownerId   String
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  memberships Membership[]
+  businesses  Business[]
+  aiProviders AIProvider[]
+  invitations Invitation[]
+}
+
+model Membership {
+  id             String       @id @default(uuid())
+  userId         String
+  organizationId String
+  role           String       @default("org_admin") // super_admin, org_admin, member, viewer
+  createdAt      DateTime     @default(now())
+
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+}
+
+model Invitation {
+  id             String       @id @default(uuid())
+  organizationId String
+  email          String
+  role           String       @default("marketing_manager")
+  token          String       @unique
+  status         String       @default("pending") // pending, accepted, expired
+  invitedByUserId String
+  expiresAt      DateTime
+  createdAt      DateTime     @default(now())
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  invitedByUser  User         @relation(fields: [invitedByUserId], references: [id], onDelete: Cascade)
+}
+
+model Business {
+  id             String       @id @default(uuid())
+  organizationId String
+  name           String
+  slug           String
+  description    String?
+  industry       String?
+  timezone       String       @default("UTC")
+  avatarUrl      String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  members        BusinessMember[]
+  brandKit       BrandKit?
+  socialAccounts SocialAccount[]
+  campaigns      Campaign[]
+  contents       Content[]
+  workflows      AutomationWorkflow[]
+  analytics      AnalyticsSnapshot[]
+
+  @@unique([organizationId, slug])
+}
+
+model BusinessMember {
+  id         String   @id @default(uuid())
+  userId     String
+  businessId String
+  role       String   @default("marketing_manager") // business_admin, marketing_manager, content_creator, designer, viewer
+  createdAt  DateTime @default(now())
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, businessId])
+}
+
+model BrandKit {
+  id                  String   @id @default(uuid())
+  businessId          String   @unique
+  brandName           String
+  tagline             String?
+  websiteUrl          String?
+  logoUrl             String?
+  primaryColor        String   @default("#1e1e1e")
+  secondaryColor      String   @default("#f4f5f7")
+  accentColor         String   @default("#1d4ed8")
+  backgroundColor     String   @default("#ffffff")
+  headingFont         String   @default("Montserrat")
+  bodyFont            String   @default("Inter")
+  brandVoiceJson      String   @default("[\"Visionary\",\"Professional\"]")
+  targetAudience      String   @default("Target Audience Profile")
+  productsJson        String   @default("[]")
+  preferredHashtagsJson String @default("[]")
+  restrictionsJson    String   @default("[]")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  business            Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+model SocialAccount {
+  id                 String              @id @default(uuid())
+  businessId         String
+  platform           String              // instagram, linkedin, x
+  platformAccountId  String
+  accountName        String
+  avatarUrl          String?
+  isConnected        Boolean             @default(true)
+  tokenExpiresAt     DateTime?
+  lastSyncAt         DateTime?
+  permissionsJson    String              @default("[]")
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  business           Business            @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  credential         PlatformCredential?
+  scheduledPosts     ScheduledPost[]
+}
+
+model PlatformCredential {
+  id              String        @id @default(uuid())
+  socialAccountId String        @unique
+  accessTokenEnc  String
+  refreshTokenEnc String?
+  tokenSecretEnc  String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  socialAccount   SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+}
+
+model AIProvider {
+  id             String       @id @default(uuid())
+  organizationId String
+  providerName   String       // openai, gemini, anthropic, groq
+  apiKeyEnc      String
+  baseUrl        String?
+  isEnabled      Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model AIPersona {
+  id                  String   @id @default(uuid())
+  role                String   @unique // marketing_strategist, content_writer, visual_designer, quality_assurance
+  name                String
+  description         String
+  defaultProvider     String
+  defaultModel        String
+  defaultTemperature Float    @default(0.7)
+  systemInstructions  String
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model Campaign {
+  id          String    @id @default(uuid())
+  businessId  String
+  name        String
+  objective   String?
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  business    Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  contents    Content[]
+}
+
+model Content {
+  id               String           @id @default(uuid())
+  businessId       String
+  campaignId       String?
+  title            String
+  masterCopy       String
+  targetPlatformsJson String        @default("[]")
+  status           String           @default("draft") // idea, planned, generating, draft, pending_approval, approved, scheduled, publishing, published, failed, cancelled
+  scheduledFor     DateTime?
+  publishedAt      DateTime?
+  createdByRole    String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  business         Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  campaign         Campaign?        @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  variants         ContentVariant[]
+  carouselSlides   CarouselSlide[]
+  mediaAssets      MediaAsset[]
+  scheduledPosts   ScheduledPost[]
+}
+
+model ContentVariant {
+  id           String   @id @default(uuid())
+  contentId    String
+  platform     String
+  text         String
+  hashtagsJson String   @default("[]")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  content      Content  @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  @@unique([contentId, platform])
+}
+
+model CarouselSlide {
+  id              String   @id @default(uuid())
+  contentId       String
+  slideNumber     Int
+  headline        String
+  bodyText        String
+  imageUrl        String?
+  callToAction    String?
+  backgroundColor String?  @default("#1e1e1e")
+  textColor       String?  @default("#ffffff")
+  createdAt       DateTime @default(now())
+
+  content         Content  @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  @@unique([contentId, slideNumber])
+}
+
+model MediaAsset {
+  id           String   @id @default(uuid())
+  contentId    String?
+  url          String
+  fileType     String   // image/png, video/mp4
+  fileSize     Int
+  width        Int?
+  height       Int?
+  createdAt    DateTime @default(now())
+
+  content      Content? @relation(fields: [contentId], references: [id], onDelete: SetNull)
+}
+
+model ScheduledPost {
+  id              String         @id @default(uuid())
+  contentId       String
+  socialAccountId String
+  scheduledTime   DateTime
+  idempotencyKey  String         @unique
+  retryCount      Int            @default(0)
+  status          String         @default("scheduled")
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  content         Content        @relation(fields: [contentId], references: [id], onDelete: Cascade)
+  socialAccount   SocialAccount  @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+  publishingLogs  PublishingLog[]
+}
+
+model PublishingLog {
+  id              String        @id @default(uuid())
+  scheduledPostId String
+  attemptNumber   Int
+  statusCode      Int?
+  externalPostId  String?
+  responseJson    String?
+  errorMessage    String?
+  executedAt      DateTime      @default(now())
+
+  scheduledPost   ScheduledPost @relation(fields: [scheduledPostId], references: [id], onDelete: Cascade)
+}
+
+model AutomationWorkflow {
+  id                 String              @id @default(uuid())
+  businessId         String
+  name               String
+  description        String?
+  triggerType        String              @default("cron")
+  cronSchedule       String?
+  targetPlatformsJson String             @default("[]")
+  contentCategoriesJson String           @default("[]")
+  assignedPersonasJson String            @default("[]")
+  approvalMode       String              @default("conditional") // manual, conditional, full_auto
+  isActive           Boolean             @default(true)
+  monthlyAiBudgetUsd Float               @default(50.0)
+  currentSpendUsd    Float               @default(0.0)
+  lastRunAt          DateTime?
+  nextRunAt          DateTime?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  business           Business            @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  executions         WorkflowExecution[]
+}
+
+model WorkflowExecution {
+  id           String             @id @default(uuid())
+  workflowId   String
+  status       String             // running, success, failed, requires_approval
+  stepResultsJson String          @default("[]")
+  tokensUsed   Int                @default(0)
+  costUsd      Float              @default(0.0)
+  startedAt    DateTime           @default(now())
+  completedAt  DateTime?
+  errorMessage String?
+
+  workflow     AutomationWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+}
+
+model AnalyticsSnapshot {
+  id          String   @id @default(uuid())
+  businessId  String
+  platform    String   // instagram, linkedin, x
+  metricName  String   // impressions, reach, engagement, followers
+  value       Float
+  collectedAt DateTime @default(now())
+
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  action     String
+  resource   String
+  resourceId String?
+  detailsJson String?
+  timestamp  DateTime @default(now())
+
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
