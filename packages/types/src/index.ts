@@ -223,3 +223,76 @@ export interface DashboardKPIMetrics {
   publishingFailureCount: number;
 }
 
+// ==============================================================================
+// SOCIAL MEDIA INTEGRATION CONTRACTS
+// ==============================================================================
+
+export interface PlatformPost {
+  text: string;
+  mediaUrls?: string[];
+  carouselSlides?: {
+    slideNumber: number;
+    headline: string;
+    bodyText: string;
+    imageUrl?: string;
+  }[];
+  hashtags?: string[];
+  scheduledTime?: string;
+}
+
+export interface PublishResult {
+  success: boolean;
+  platformPostId?: string;
+  url?: string;
+  publishedAt: string;
+  error?: string;
+}
+
+export interface PostStatusInfo {
+  status: 'published' | 'processing' | 'failed' | 'deleted';
+  platformPostId: string;
+  url?: string;
+  metrics?: {
+    impressions?: number;
+    reach?: number;
+    likes?: number;
+    comments?: number;
+    shares?: number;
+    clicks?: number;
+  };
+}
+
+export interface PlatformValidationResult {
+  valid: boolean;
+  errors: string[];
+  warnings: string[];
+}
+
+export interface ConnectionResult {
+  success: boolean;
+  platformAccountId: string;
+  accountName: string;
+  avatarUrl?: string;
+  accessToken: string;
+  refreshToken?: string;
+  tokenExpiresAt?: string;
+  permissions: string[];
+}
+
+export interface SocialPlatformAdapter {
+  platform: SocialPlatform;
+  getAuthorizationUrl(state: string, redirectUri: string): string;
+  handleCallback(code: string, redirectUri: string): Promise<ConnectionResult>;
+  refreshToken(refreshToken: string): Promise<{ accessToken: string; refreshToken?: string; tokenExpiresAt?: string }>;
+  validateContent(post: PlatformPost): PlatformValidationResult;
+  publishPost(
+    post: PlatformPost,
+    credentials: { accessToken: string; tokenSecret?: string; platformAccountId: string }
+  ): Promise<PublishResult>;
+  getPostStatus(
+    platformPostId: string,
+    credentials: { accessToken: string; platformAccountId: string }
+  ): Promise<PostStatusInfo>;
+}
+
+
