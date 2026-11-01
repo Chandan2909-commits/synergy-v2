@@ -35,3 +35,4 @@ export class ExecuteAutonomousDto {
   approvalMode?: 'manual' | 'conditional' | 'full_auto';
   scheduledTime?: string;
 }
+

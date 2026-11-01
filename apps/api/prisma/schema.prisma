@@ -333,14 +333,17 @@ model WorkflowExecution {
 }
 
 model AnalyticsSnapshot {
-  id          String   @id @default(uuid())
-  businessId  String
-  platform    String   // instagram, linkedin, x
-  metricName  String   // impressions, reach, engagement, followers
-  value       Float
-  collectedAt DateTime @default(now())
+  id             String   @id @default(uuid())
+  businessId     String
+  platform       String   // instagram, linkedin, x
+  accountId      String?
+  externalPostId String?
+  metricName     String   // impressions, reach, engagement, likes, comments, shares, followers, clicks
+  value          Float
+  source         String   @default("platform_api")
+  collectedAt    DateTime @default(now())
 
-  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  business       Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
 }
 
 model AuditLog {
