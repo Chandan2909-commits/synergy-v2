@@ -22,9 +22,9 @@ async function bootstrap() {
   app.useGlobalFilters(new AllExceptionsFilter());
 
   const port = process.env.PORT || 4000;
-  await app.listen(port, '127.0.0.1');
-  logger.log(`Synergy API engine running on http://127.0.0.1:${port}/api/v1`);
-  logger.log(`Health check ready at http://127.0.0.1:${port}/api/v1/health`);
+  await app.listen(port, '0.0.0.0');
+  logger.log(`Synergy API engine running on http://0.0.0.0:${port}/api/v1`);
+  logger.log(`Health check ready at http://0.0.0.0:${port}/api/v1/health`);
 }
 
 bootstrap();
