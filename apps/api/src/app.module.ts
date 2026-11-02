@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { PrismaModule } from './common/prisma/prisma.module';
+import { RedisModule } from './modules/redis/redis.module';
 import { HealthModule } from './modules/health/health.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AIModule } from './modules/ai/ai.module';
@@ -19,6 +20,7 @@ import { TeamModule } from './modules/team/team.module';
       envFilePath: ['.env', '../../.env'],
     }),
     PrismaModule,
+    RedisModule,
     HealthModule,
     AuthModule,
     AIModule,
