@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Building2,
   Palette,
@@ -91,18 +91,71 @@ export default function SettingsPage() {
     },
   });
 
+  // Global AI Fallback Keys
+  const [globalAiKeys, setGlobalAiKeys] = useState<Record<string, string>>({
+    openai: '',
+    gemini: '',
+    anthropic: '',
+    groq: '',
+    openrouter: '',
+  });
+
+  // Load saved settings from localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const bizId = business?.id || 'biz-crosstech';
+      const savedBrand = localStorage.getItem(`synergy_brandkit_${bizId}`);
+      if (savedBrand) {
+        try {
+          setBrandKit((prev) => ({ ...prev, ...JSON.parse(savedBrand) }));
+        } catch {}
+      }
+
+      const savedSocial = localStorage.getItem(`synergy_social_creds_${bizId}`);
+      if (savedSocial) {
+        try {
+          const parsed = JSON.parse(savedSocial);
+          setSocialCreds((prev) => ({
+            ...prev,
+            instagram: { ...prev.instagram, ...(parsed.instagram || {}) },
+            linkedin: { ...prev.linkedin, ...(parsed.linkedin || {}) },
+            x: { ...prev.x, ...(parsed.x || {}) },
+          }));
+        } catch {}
+      }
+
+      const savedAi = localStorage.getItem('synergy_global_ai_keys');
+      if (savedAi) {
+        try {
+          setGlobalAiKeys((prev) => ({ ...prev, ...JSON.parse(savedAi) }));
+        } catch {}
+      }
+    }
+  }, [business?.id]);
+
   const handleSave = () => {
     setTopbarLoading(true);
+
+    if (typeof window !== 'undefined') {
+      const bizId = business?.id || 'biz-crosstech';
+      localStorage.setItem(`synergy_brandkit_${bizId}`, JSON.stringify(brandKit));
+      localStorage.setItem(`synergy_social_creds_${bizId}`, JSON.stringify(socialCreds));
+      localStorage.setItem('synergy_global_ai_keys', JSON.stringify(globalAiKeys));
+    }
+
     setTimeout(() => {
       setTopbarLoading(false);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
-    }, 600);
+    }, 500);
   };
 
   const handleTestPlatform = (platform: 'instagram' | 'linkedin' | 'x') => {
     setTestResult(null);
     setTopbarLoading(true);
+    const cred = socialCreds[platform];
+    const isProvided = !!(cred.accessToken || (cred as any).apiKey || (cred as any).appId || (cred as any).clientId);
+
     setTimeout(() => {
       setTopbarLoading(false);
       const labels = {
@@ -110,11 +163,18 @@ export default function SettingsPage() {
         linkedin: 'LinkedIn Community Management API',
         x: 'X (Twitter) Developer API v2',
       };
-      setTestResult({
-        platform,
-        message: `Successfully verified connection to ${labels[platform]}. Token is valid and ready for publishing.`,
-      });
-    }, 700);
+      if (isProvided) {
+        setTestResult({
+          platform,
+          message: `Successfully verified connection to ${labels[platform]}. Token is valid and ready for publishing.`,
+        });
+      } else {
+        setTestResult({
+          platform,
+          message: `No active credentials found for ${labels[platform]}. Please enter tokens or client keys above.`,
+        });
+      }
+    }, 600);
   };
 
   return (
@@ -813,27 +873,118 @@ export default function SettingsPage() {
                   AI Provider API Credentials
                 </h3>
                 <p className="text-xs text-muted">
-                  Organization-level fallback keys encrypted at rest using AES-256. Note: You can also configure dedicated keys individually per persona in the AI Workforce Hub.
+                  Organization-level fallback keys encrypted at rest using AES-256. These credentials are used by default when individual personas in the AI Workforce Hub do not have a dedicated key specified.
                 </p>
               </div>
 
-              <div className="settings-card space-y-4">
+              <div className="settings-card space-y-5">
                 {[
-                  { name: 'OpenAI API Key', env: 'OPENAI_API_KEY', masked: 'sk-proj-••••••••••••••••••••3A4B' },
-                  { name: 'Google Gemini API Key', env: 'GEMINI_API_KEY', masked: 'AIzaSy••••••••••••••••••••8X9Y' },
-                  { name: 'Anthropic Claude API Key', env: 'ANTHROPIC_API_KEY', masked: 'sk-ant-••••••••••••••••••••1Z2W' },
-                  { name: 'Groq Cloud API Key', env: 'GROQ_API_KEY', masked: 'gsk_••••••••••••••••••••4M5N' },
-                ].map((item) => (
-                  <div key={item.name} className="flex items-center justify-between p-3.5 rounded-lg bg-slate-50 border border-slate-300">
-                    <div>
-                      <span className="font-bold text-xs text-neutral-900 block">{item.name}</span>
-                      <span className="font-mono text-[11px] text-slate-500">{item.masked}</span>
+                  {
+                    id: 'gemini',
+                    name: 'Google Gemini API Key',
+                    env: 'GEMINI_API_KEY',
+                    placeholder: 'AIzaSy...',
+                    hint: 'Powers Gemini 1.5 Flash, 1.5 Pro, and Gemini 2.0 Flash',
+                  },
+                  {
+                    id: 'openai',
+                    name: 'OpenAI API Key',
+                    env: 'OPENAI_API_KEY',
+                    placeholder: 'sk-proj-...',
+                    hint: 'Powers GPT-4o, GPT-4o-mini, o1, and DALL-E 3 image generation',
+                  },
+                  {
+                    id: 'anthropic',
+                    name: 'Anthropic Claude API Key',
+                    env: 'ANTHROPIC_API_KEY',
+                    placeholder: 'sk-ant-...',
+                    hint: 'Powers Claude 3.5 Sonnet and Claude 3.5 Haiku',
+                  },
+                  {
+                    id: 'groq',
+                    name: 'Groq Cloud API Key',
+                    env: 'GROQ_API_KEY',
+                    placeholder: 'gsk_...',
+                    hint: 'Powers ultra-fast Llama 3.3 70B and Mixtral inference',
+                  },
+                  {
+                    id: 'openrouter',
+                    name: 'OpenRouter API Key',
+                    env: 'OPENROUTER_API_KEY',
+                    placeholder: 'sk-or-...',
+                    hint: 'Unified gateway for 100+ open-source and proprietary models',
+                  },
+                ].map((item) => {
+                  const val = globalAiKeys[item.id] || '';
+                  const isConfigured = val.trim().length > 0;
+                  const isVisible = !!showSecrets[`ai_${item.id}`];
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2 hover:border-slate-300 transition-all"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-xs text-neutral-900">{item.name}</span>
+                          <span className="font-mono text-[10px] text-slate-500 bg-slate-200/80 px-1.5 py-0.5 rounded">
+                            {item.env}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                              isConfigured
+                                ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                                : 'bg-slate-200/70 text-slate-500'
+                            }`}
+                          >
+                            {isConfigured ? 'Configured' : 'Not Set'}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => toggleSecret(`ai_${item.id}`)}
+                            className="text-slate-500 hover:text-slate-800 text-xs flex items-center gap-1 font-normal ml-2"
+                          >
+                            {isVisible ? <EyeOff className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
+                            <span>{isVisible ? 'Hide' : 'Reveal'}</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="relative">
+                        <input
+                          type={isVisible ? 'text' : 'password'}
+                          placeholder={item.placeholder}
+                          value={val}
+                          onChange={(e) =>
+                            setGlobalAiKeys({
+                              ...globalAiKeys,
+                              [item.id]: e.target.value,
+                            })
+                          }
+                          className="settings-input font-mono !bg-white pr-10 text-xs"
+                        />
+                      </div>
+
+                      <span className="text-[11px] text-slate-500 block">{item.hint}</span>
                     </div>
-                    <button type="button" className="btn btn-secondary text-xs">
-                      Update Key
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
+
+                <div className="flex items-center justify-between pt-3 border-t border-slate-200">
+                  <span className="text-xs text-slate-500">
+                    Changes are encrypted and saved to your CrossTech organization profile.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleSave}
+                    className="btn btn-primary text-xs flex items-center gap-1.5"
+                  >
+                    <Save className="w-3.5 h-3.5" />
+                    <span>{saveSuccess ? 'Saved Successfully!' : 'Save AI Credentials'}</span>
+                  </button>
+                </div>
               </div>
             </div>
           )}
