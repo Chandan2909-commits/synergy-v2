@@ -190,7 +190,7 @@ export default function AutomationPage() {
             <button
               type="button"
               onClick={() => setIsModalOpen(true)}
-              className="btn-primary mt-2 inline-flex items-center gap-2 cursor-pointer"
+              className="btn btn-primary mt-2 cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Create First Workflow</span>

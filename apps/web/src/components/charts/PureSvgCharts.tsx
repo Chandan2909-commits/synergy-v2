@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { Activity } from 'lucide-react';
 
 // ==============================================================================
 // 14.1 DUAL CUBIC BÉZIER MULTI-CURVE TREND CHART
@@ -33,8 +34,8 @@ function getBezierPath(points: Point[]): string {
 }
 
 export function DualBezierTrendChart({
-  series1 = [32, 45, 68, 54, 82, 95, 110], // Impressions (k)
-  series2 = [12, 18, 29, 22, 38, 44, 52],  // Engagements (k)
+  series1 = [0, 0, 0, 0, 0, 0, 0], // Impressions
+  series2 = [0, 0, 0, 0, 0, 0, 0], // Engagements
   labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
   height = 220,
 }: {
@@ -46,6 +47,7 @@ export function DualBezierTrendChart({
   const width = 640;
   const paddingX = 40;
   const paddingY = 24;
+  const hasData = series1.some((v) => v > 0) || series2.some((v) => v > 0);
   const maxVal = Math.max(...series1, ...series2, 100);
 
   const stepX = (width - paddingX * 2) / (series1.length - 1);
@@ -68,7 +70,7 @@ export function DualBezierTrendChart({
   const areaPath2 = `${linePath2} L ${points2[points2.length - 1].x} ${height - paddingY} L ${points2[0].x} ${height - paddingY} Z`;
 
   return (
-    <div className="w-full overflow-hidden">
+    <div className="relative w-full overflow-hidden">
       <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-auto overflow-visible">
         <defs>
           <linearGradient id="gradient-s1" x1="0" y1="0" x2="0" y2="1">
@@ -97,40 +99,67 @@ export function DualBezierTrendChart({
           );
         })}
 
-        {/* Area Fills */}
-        <path d={areaPath1} fill="url(#gradient-s1)" />
-        <path d={areaPath2} fill="url(#gradient-s2)" />
+        {/* Baseline ground line */}
+        <line
+          x1={paddingX}
+          y1={height - paddingY}
+          x2={width - paddingX}
+          y2={height - paddingY}
+          stroke="#e2e8f0"
+          strokeWidth="1.5"
+        />
 
-        {/* Lines */}
-        <path d={linePath1} fill="none" stroke="#1d4ed8" strokeWidth="2.5" strokeLinecap="round" />
-        <path d={linePath2} fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" />
+        {hasData ? (
+          <>
+            {/* Area Fills */}
+            <path d={areaPath1} fill="url(#gradient-s1)" />
+            <path d={areaPath2} fill="url(#gradient-s2)" />
 
-        {/* Points on Line 1 */}
-        {points1.map((p, idx) => (
-          <circle
-            key={`p1-${idx}`}
-            cx={p.x}
-            cy={p.y}
-            r="4"
-            fill="#ffffff"
-            stroke="#1d4ed8"
-            strokeWidth="2"
-            className="transition-all hover:scale-125 cursor-pointer"
-          />
-        ))}
+            {/* Lines */}
+            <path d={linePath1} fill="none" stroke="#1d4ed8" strokeWidth="2.5" strokeLinecap="round" />
+            <path d={linePath2} fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" />
 
-        {/* Points on Line 2 */}
-        {points2.map((p, idx) => (
-          <circle
-            key={`p2-${idx}`}
-            cx={p.x}
-            cy={p.y}
-            r="3.5"
-            fill="#ffffff"
-            stroke="#10b981"
-            strokeWidth="2"
-          />
-        ))}
+            {/* Points on Line 1 */}
+            {points1.map((p, idx) => (
+              <circle
+                key={`p1-${idx}`}
+                cx={p.x}
+                cy={p.y}
+                r="4"
+                fill="#ffffff"
+                stroke="#1d4ed8"
+                strokeWidth="2"
+                className="transition-all hover:scale-125 cursor-pointer"
+              />
+            ))}
+
+            {/* Points on Line 2 */}
+            {points2.map((p, idx) => (
+              <circle
+                key={`p2-${idx}`}
+                cx={p.x}
+                cy={p.y}
+                r="3.5"
+                fill="#ffffff"
+                stroke="#10b981"
+                strokeWidth="2"
+              />
+            ))}
+          </>
+        ) : (
+          /* Clean Flat Baseline Dots */
+          points1.map((p, idx) => (
+            <circle
+              key={`p0-${idx}`}
+              cx={p.x}
+              cy={height - paddingY}
+              r="3"
+              fill="#ffffff"
+              stroke="#cbd5e1"
+              strokeWidth="1.5"
+            />
+          ))
+        )}
 
         {/* X-Axis Labels */}
         {labels.map((lbl, idx) => {
@@ -148,6 +177,16 @@ export function DualBezierTrendChart({
           );
         })}
       </svg>
+
+      {/* Clean Zero-Data Empty Overlay */}
+      {!hasData && (
+        <div className="absolute inset-0 flex items-center justify-center pb-6 pointer-events-none">
+          <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-50/90 backdrop-blur-sm border border-slate-200 text-xs font-medium text-slate-500 shadow-sm">
+            <Activity className="w-3.5 h-3.5 text-blue-600 animate-pulse" />
+            <span>Baseline Ready • Telemetry curves will render dynamically once posts are dispatched</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -156,10 +195,10 @@ export function DualBezierTrendChart({
 // 14.2 180° SPEEDOMETER DIAL GAUGE
 // ==============================================================================
 export function SpeedometerDialGauge({
-  score = 98.4,
+  score = 100,
   maxScore = 100,
   size = 220,
-  label = 'AI Brand Accuracy',
+  label = 'Brand Kit Conformance',
 }: {
   score?: number;
   maxScore?: number;
@@ -246,11 +285,11 @@ export function SpeedometerDialGauge({
 // ==============================================================================
 export function HorizontalConversionFunnel({
   stages = [
-    { label: 'Content Ideas & Topics', value: 340, pct: 100 },
-    { label: 'AI Strategist Planned', value: 280, pct: 82 },
-    { label: 'Written & Multi-Variant', value: 245, pct: 72 },
-    { label: 'QA Verified & Approved', value: 210, pct: 62 },
-    { label: 'Published & Monitored', value: 198, pct: 58 },
+    { label: 'Content Ideas & Topics', value: 0, pct: 0 },
+    { label: 'AI Strategist Planned', value: 0, pct: 0 },
+    { label: 'Written & Multi-Variant', value: 0, pct: 0 },
+    { label: 'QA Verified & Approved', value: 0, pct: 0 },
+    { label: 'Published & Monitored', value: 0, pct: 0 },
   ],
 }: {
   stages?: { label: string; value: number; pct: number }[];
@@ -266,21 +305,21 @@ export function HorizontalConversionFunnel({
               </span>
               {stage.label}
             </span>
-            <span className="text-slate-500 font-mono">
+            <span className="text-slate-400 font-mono text-[11px]">
               {stage.value} ({stage.pct}%)
             </span>
           </div>
           <div className="w-full h-[9px] bg-slate-100 rounded-[6px] overflow-hidden">
             <div
               className="h-full bg-blue-600 rounded-[6px] transition-all duration-700"
-              style={{
-                width: `${stage.pct}%`,
-                backgroundColor: idx === 4 ? '#10b981' : '#1d4ed8',
-              }}
+              style={{ width: `${Math.max(0, Math.min(100, stage.pct))}%` }}
             />
           </div>
         </div>
       ))}
+      <div className="pt-1 text-[11px] text-slate-400 text-center">
+        Stages update as content advances from ideation to publishing
+      </div>
     </div>
   );
 }
@@ -290,9 +329,9 @@ export function HorizontalConversionFunnel({
 // ==============================================================================
 export function SentimentDonutRing({
   data = [
-    { label: 'Instagram', value: 45, color: '#e1306c' },
-    { label: 'LinkedIn', value: 35, color: '#0a66c2' },
-    { label: 'X (Twitter)', value: 20, color: '#111827' },
+    { label: 'Instagram', value: 0, color: '#e1306c' },
+    { label: 'LinkedIn', value: 0, color: '#0a66c2' },
+    { label: 'X (Twitter)', value: 0, color: '#111827' },
   ],
   size = 180,
 }: {
@@ -304,6 +343,51 @@ export function SentimentDonutRing({
   const cy = size / 2;
   const radius = size * 0.42;
   const innerRadius = size * 0.26;
+
+  if (total === 0) {
+    return (
+      <div className="flex items-center gap-6">
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          {/* Neutral background track */}
+          <circle
+            cx={cx}
+            cy={cy}
+            r={(radius + innerRadius) / 2}
+            fill="none"
+            stroke="#f1f5f9"
+            strokeWidth={radius - innerRadius}
+          />
+          <circle
+            cx={cx}
+            cy={cy}
+            r={radius}
+            fill="none"
+            stroke="#e2e8f0"
+            strokeWidth="1.5"
+            strokeDasharray="4 4"
+          />
+          <circle cx={cx} cy={cy} r={innerRadius - 2} fill="#ffffff" />
+          <text
+            x={cx}
+            y={cy + 4}
+            textAnchor="middle"
+            className="text-xs font-mono font-bold fill-slate-400"
+          >
+            0%
+          </text>
+        </svg>
+        <div className="space-y-2">
+          {data.map((item) => (
+            <div key={item.label} className="flex items-center gap-2 text-xs">
+              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }} />
+              <span className="font-semibold text-foreground">{item.label}</span>
+              <span className="text-slate-400 font-mono text-[11px]">0%</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   let currentAngle = 0;
 
@@ -362,7 +446,7 @@ export function SentimentDonutRing({
 // 14.5 HIGH-PRECISION CIRCULAR PROGRESS RING
 // ==============================================================================
 export function CircularProgressRing({
-  pct = 75,
+  pct = 0,
   size = 72,
   strokeWidth = 6,
   color = '#1e1e1e',
@@ -407,4 +491,3 @@ export function CircularProgressRing({
     </div>
   );
 }
-

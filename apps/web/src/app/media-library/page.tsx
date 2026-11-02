@@ -64,7 +64,7 @@ export default function MediaLibraryPage() {
           <p className="text-xs text-slate-500 max-w-md mx-auto">
             Upload your brand logos, custom graphics, or generate typography slides directly with the Visual Designer persona.
           </p>
-          <label className="btn-primary mt-2 inline-flex items-center gap-2 cursor-pointer">
+          <label className="btn btn-primary mt-2 cursor-pointer">
             <Upload className="w-3.5 h-3.5" />
             <span>Upload Files</span>
             <input
