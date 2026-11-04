@@ -868,16 +868,18 @@ export default function ContentStudioPage() {
   // Dual-strategy: Primary DOM capture + Isolated HTML5 Iframe Fallback
   // ----------------------------------------------------------------------------
   const extractSlideDimensions = (html: string) => {
-    let width = 360;
-    let height = 450;
-    const widthMatch = html.match(/width:\s*(\d+)px/i);
-    const heightMatch = html.match(/height:\s*(\d+)px/i);
-    if (widthMatch && parseInt(widthMatch[1], 10) >= 100) {
-      width = parseInt(widthMatch[1], 10);
-    }
-    if (heightMatch && parseInt(heightMatch[1], 10) >= 100) {
-      height = parseInt(heightMatch[1], 10);
-    }
+    // Specifically search for .carousel-slide or .slide or body/container CSS rules
+    const slideRuleMatch =
+      html.match(/\.carousel-slide\s*\{([^}]+)\}/i) ||
+      html.match(/\.slide\s*\{([^}]+)\}/i) ||
+      html.match(/body\s*\{([^}]+)\}/i);
+    const cssScope = slideRuleMatch ? slideRuleMatch[1] : html;
+
+    const widthMatch = cssScope.match(/width:\s*(\d+)px/i) || html.match(/width:\s*(\d+)px/i);
+    const heightMatch = cssScope.match(/height:\s*(\d+)px/i) || html.match(/height:\s*(\d+)px/i);
+
+    let width = widthMatch && parseInt(widthMatch[1], 10) >= 100 ? parseInt(widthMatch[1], 10) : 360;
+    let height = heightMatch && parseInt(heightMatch[1], 10) >= 100 ? parseInt(heightMatch[1], 10) : 450;
     return { width, height };
   };
 
@@ -925,21 +927,16 @@ export default function ContentStudioPage() {
             (doc.body.firstElementChild as HTMLElement) ||
             doc.body;
 
-          const result = await toPng(target, {
-            width,
-            height,
-            canvasWidth: width * 2,
-            canvasHeight: height * 2,
+          const rect = target.getBoundingClientRect();
+          const targetW = rect.width >= 100 ? Math.round(rect.width) : width;
+          const targetH = rect.height >= 100 ? Math.round(rect.height) : height;
+
+          const result = await toPng(doc.body, {
+            width: targetW,
+            height: targetH,
             pixelRatio: 2,
             skipFonts: true,
             cacheBust: false,
-            style: {
-              transform: 'none',
-              opacity: '1',
-              visibility: 'visible',
-              margin: '0',
-              padding: '0',
-            },
           });
 
           document.body.removeChild(iframe);
@@ -954,7 +951,7 @@ export default function ContentStudioPage() {
           }
           reject(err);
         }
-      }, 160);
+      }, 180);
     });
   };
 
@@ -974,7 +971,7 @@ export default function ContentStudioPage() {
 
         let dataUrl = '';
 
-        // Strategy 1: Render from DOM sandbox with style tag inlined
+        // Strategy 1: Render directly from DOM sandbox
         const slideContainer = document.getElementById(`sandbox-slide-${i}`);
         if (slideContainer) {
           try {
@@ -985,34 +982,23 @@ export default function ContentStudioPage() {
               ) as HTMLElement) ||
               slideContainer;
 
-            // Embed any sibling <style> tags inside the captured element
-            const styleTags = Array.from(slideContainer.querySelectorAll('style'));
-            styleTags.forEach((st) => {
-              if (innerSlide !== slideContainer && !innerSlide.contains(st)) {
-                innerSlide.prepend(st.cloneNode(true));
-              }
-            });
-
+            const rect = innerSlide.getBoundingClientRect();
             const measuredWidth =
-              innerSlide.offsetWidth > 100 ? innerSlide.offsetWidth : dims.width;
+              rect.width >= 100 ? Math.round(rect.width) : dims.width;
             const measuredHeight =
-              innerSlide.offsetHeight > 100 ? innerSlide.offsetHeight : dims.height;
+              rect.height >= 100 ? Math.round(rect.height) : dims.height;
 
-            const res = await toPng(innerSlide, {
+            // Size the container to wrap the slide tightly without altering inner flex items
+            slideContainer.style.width = `${measuredWidth}px`;
+            slideContainer.style.height = `${measuredHeight}px`;
+            slideContainer.style.overflow = 'hidden';
+
+            const res = await toPng(slideContainer, {
               width: measuredWidth,
               height: measuredHeight,
-              canvasWidth: measuredWidth * 2,
-              canvasHeight: measuredHeight * 2,
               pixelRatio: 2,
               skipFonts: true,
               cacheBust: false,
-              style: {
-                transform: 'none',
-                opacity: '1',
-                visibility: 'visible',
-                margin: '0',
-                padding: '0',
-              },
             });
 
             if (isValidPngDataUrl(res)) {
@@ -1040,7 +1026,7 @@ export default function ContentStudioPage() {
       setActiveCompiledIndex(0);
       setActiveCodeTab('compiled');
       setCompileProgress(null);
-      setToastMessage(`✅ Successfully compiled ${images.length} slides into 2x Retina PNGs!`);
+      setToastMessage(`✅ Successfully compiled ${images.length} slides matching live preview!`);
       setTimeout(() => setToastMessage(null), 3500);
     } catch (err: any) {
       console.error('Compilation failed:', err);
@@ -1776,20 +1762,25 @@ export default function ContentStudioPage() {
 
               {/* TAB 1: Live Interactive HTML Preview */}
               {activeCodeTab === 'editor' && (
-                <div className="flex-1 flex flex-col items-center justify-between p-4 bg-slate-50/70 border border-dashed border-slate-200 rounded-xl overflow-hidden">
+                <div className="flex-1 flex flex-col items-center justify-between p-4 bg-slate-50/70 border border-dashed border-slate-200 rounded-xl overflow-hidden min-h-[500px]">
                   <div className="w-full flex items-center justify-between text-xs pb-2 border-b border-slate-200/60 mb-2">
                     <span className="font-bold text-slate-700">
                       {currentCodeSlide.title || `Slide ${activeCodeSlideIndex + 1}`} Preview
                     </span>
-                    <div className="flex items-center gap-1 text-slate-500 font-mono text-[11px]">
-                      <span>{activeCodeSlideIndex + 1} / {codeSlides.length}</span>
+                    <div className="flex items-center gap-2 text-slate-500 font-mono text-[11px]">
+                      <span className="bg-slate-200/60 px-2 py-0.5 rounded text-[10px] font-semibold text-slate-700">
+                        {extractSlideDimensions(currentCodeSlide.html).width} × {extractSlideDimensions(currentCodeSlide.html).height} px
+                      </span>
+                      <span>
+                        {activeCodeSlideIndex + 1} / {codeSlides.length}
+                      </span>
                     </div>
                   </div>
 
-                  <div className="w-full flex justify-center py-2 overflow-y-auto max-h-[380px]">
+                  <div className="w-full flex-1 flex items-center justify-center py-2 overflow-auto">
                     <div
                       dangerouslySetInnerHTML={{ __html: currentCodeSlide.html }}
-                      className="flex flex-col items-center"
+                      className="flex flex-col items-center transition-all"
                     />
                   </div>
 
@@ -1822,7 +1813,7 @@ export default function ContentStudioPage() {
 
               {/* TAB 2: Compiled Retina Images Gallery */}
               {activeCodeTab === 'compiled' && (
-                <div className="flex-1 flex flex-col items-center justify-between p-4 bg-slate-50/70 border border-slate-200 rounded-xl">
+                <div className="flex-1 flex flex-col items-center justify-between p-4 bg-slate-50/70 border border-slate-200 rounded-xl min-h-[500px]">
                   {compiledImages.length === 0 ? (
                     <div className="my-auto text-center space-y-3 py-12">
                       <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center mx-auto text-blue-600">
@@ -1832,7 +1823,7 @@ export default function ContentStudioPage() {
                         No Compiled Images Yet
                       </h4>
                       <p className="text-xs text-slate-500 max-w-xs mx-auto">
-                        Click the &ldquo;Compile All {codeSlides.length} Slides&rdquo; button to convert your HTML slides into 2x retina social assets.
+                        Click &ldquo;Compile All {codeSlides.length} Slides&rdquo; to generate crisp 2x retina social PNGs matching your exact live preview.
                       </p>
                       <button
                         type="button"
@@ -1845,28 +1836,39 @@ export default function ContentStudioPage() {
                       </button>
                     </div>
                   ) : (
-                    <div className="w-full flex flex-col items-center justify-between space-y-4">
+                    <div className="w-full flex-1 flex flex-col items-center justify-between space-y-3">
                       {/* Active Compiled Image Header */}
-                      <div className="w-full flex items-center justify-between text-xs px-2">
+                      <div className="w-full flex items-center justify-between text-xs px-2 pb-2 border-b border-slate-200/60">
                         <span className="font-bold text-slate-700">
                           Slide {activeCompiledIndex + 1} of {compiledImages.length}
                         </span>
-                        <span className="font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-semibold text-[11px]">
-                          2x Retina PNG Ready
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 font-semibold text-[10px]">
+                            {extractSlideDimensions(codeSlides[activeCompiledIndex]?.html || '').width * 2} × {extractSlideDimensions(codeSlides[activeCompiledIndex]?.html || '').height * 2} px (2x Retina)
+                          </span>
+                          <span className="font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-semibold text-[10px]">
+                            1:1 Match Ready
+                          </span>
+                        </div>
                       </div>
 
-                      {/* Compiled Image Display */}
-                      <div className="relative group max-h-[380px] flex items-center justify-center">
+                      {/* Compiled Image Display - Sized exactly as the live preview slide */}
+                      <div className="w-full flex-1 flex items-center justify-center py-2 overflow-auto">
                         <img
                           src={compiledImages[activeCompiledIndex]}
                           alt={`Compiled Slide ${activeCompiledIndex + 1}`}
-                          className="max-h-[360px] w-auto rounded-xl shadow-xl border border-slate-300 object-contain"
+                          style={{
+                            width: `${extractSlideDimensions(codeSlides[activeCompiledIndex]?.html || '').width}px`,
+                            height: `${extractSlideDimensions(codeSlides[activeCompiledIndex]?.html || '').height}px`,
+                            maxWidth: '100%',
+                            objectFit: 'contain',
+                          }}
+                          className="rounded-xl shadow-xl border border-slate-300"
                         />
                       </div>
 
                       {/* Carousel Thumbnail Strip & Controls */}
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 pt-2 border-t border-slate-200/60 w-full justify-center">
                         <button
                           type="button"
                           onClick={() =>
@@ -1890,7 +1892,7 @@ export default function ContentStudioPage() {
                                   : 'border-slate-200 opacity-60 hover:opacity-100'
                               }`}
                             >
-                              <img src={img} alt={`Thumb ${i + 1}`} className="w-full h-full object-cover" />
+                              <img src={img} alt={`Slide ${i + 1}`} className="w-full h-full object-cover" />
                             </button>
                           ))}
                         </div>
