@@ -13,6 +13,7 @@ import {
   Building2,
   BarChart3,
   X,
+  Layout,
 } from 'lucide-react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 
@@ -54,6 +55,17 @@ export function CommandPaletteModal() {
   if (!isCommandPaletteOpen) return null;
 
   const defaultCommands: CommandItem[] = [
+    {
+      id: 'cmd-templates',
+      category: 'Workspace',
+      title: 'In-House Carousel Templates Library',
+      description: 'Explore curated carousel templates, edit copy live, and publish',
+      icon: Layout,
+      action: () => {
+        router.push('/templates');
+        setCommandPaletteOpen(false);
+      },
+    },
     {
       id: 'cmd-create-content',
       category: 'Actions',

@@ -20,6 +20,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Command,
+  Layout,
 } from 'lucide-react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 
@@ -38,6 +39,7 @@ const NAV_SECTIONS: NavSection[] = [
     title: 'Workspace',
     items: [
       { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+      { label: 'Templates', path: '/templates', icon: Layout, badge: '8 Ready' },
       { label: 'Content Studio', path: '/content-studio', icon: PenTool },
       { label: 'Content Calendar', path: '/calendar', icon: Calendar },
       { label: 'Campaigns', path: '/campaigns', icon: Layers },
