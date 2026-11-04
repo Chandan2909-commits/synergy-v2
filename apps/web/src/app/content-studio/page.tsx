@@ -28,9 +28,13 @@ import {
   Send,
   AlertCircle,
   X,
-  Wand2,
-  Layers as LayersIcon,
-  Maximize2,
+  ClipboardPaste,
+  ArrowLeft,
+  ArrowRight,
+  UploadCloud,
+  FileText,
+  Eraser,
+  HelpCircle,
 } from 'lucide-react';
 import { SignatureHeroCard } from '@/components/hero/SignatureHeroCard';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
@@ -529,117 +533,6 @@ const PRESET_COLLECTIONS: Record<
   },
 };
 
-// ==============================================================================
-// AI CONTENT WRITER HELPER: Extrapolates next slide narrative while maintaining
-// exact user HTML structure, styling, classes, and layout invariants.
-// ==============================================================================
-function generateNextSlideFromTemplate(
-  baseHtml: string,
-  targetSlideNum: number,
-  totalSlides: number,
-  topicHint?: string
-): { title: string; html: string } {
-  // Narrative stages for viral educational social carousels
-  const narrativeStages = [
-    {
-      role: 'Hook & Premise',
-      tag: 'Strategic Hook',
-      headline: `The Unspoken Truth About ${topicHint || 'Operations'}`,
-      body: 'Most leaders assume more manual effort equals higher growth. The real competitive moat is autonomous systemization.',
-    },
-    {
-      role: 'Core Problem & Friction',
-      tag: 'The Bottleneck',
-      headline: 'Where 80% of Marketing Teams Stumble',
-      body: 'Context switching between fragmented tools creates massive operational drag, inconsistent branding, and delayed publishing cycles.',
-    },
-    {
-      role: 'Tactical Framework',
-      tag: 'Execution Model',
-      headline: 'The 3 Pillars of Automated Execution',
-      body: 'By separating strategy, copywriting, and quality verification into autonomous specialized personas, output multiplies without quality loss.',
-    },
-    {
-      role: 'Proof & Metrics',
-      tag: 'Verified Results',
-      headline: 'Compounding Velocity in 30 Days',
-      body: 'Teams adopting deterministic multi-channel publishing increase content frequency by 4.2x while cutting manual production time to near zero.',
-    },
-    {
-      role: 'Action & CTA',
-      tag: 'Next Steps',
-      headline: 'Deploy Your First Autonomous Campaign',
-      body: 'Ready to modernize your marketing workflow? Save this carousel, share with your team, and start automating your content engine today.',
-    },
-  ];
-
-  const stage =
-    narrativeStages[(targetSlideNum - 1) % narrativeStages.length] || narrativeStages[1];
-
-  try {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(baseHtml, 'text/html');
-
-    // 1. Update tag
-    const tagElem = doc.querySelector('.tag, .badge, .slide-tag, .stat-badge, span.tag');
-    if (tagElem) {
-      tagElem.textContent = stage.tag;
-    }
-
-    // 2. Update headline
-    const headlineElem = doc.querySelector(
-      '.headline, .title, .slide-title, h1, h2, h3'
-    );
-    if (headlineElem) {
-      headlineElem.textContent = stage.headline;
-    }
-
-    // 3. Update body text
-    const bodyElem = doc.querySelector('.body, .desc, .slide-desc, p.body, p');
-    if (bodyElem) {
-      bodyElem.textContent = stage.body;
-    }
-
-    // 4. Update slide counter badge
-    const badgeNumElem = doc.querySelector(
-      '.badge-number, .slide-num, .slide-number, [data-slide-num]'
-    );
-    if (badgeNumElem) {
-      const paddedCurrent = String(targetSlideNum).padStart(2, '0');
-      const paddedTotal = String(Math.max(targetSlideNum, totalSlides)).padStart(2, '0');
-      badgeNumElem.textContent = `${paddedCurrent} / ${paddedTotal}`;
-    }
-
-    // 5. Update footer text if present
-    const footerElem = doc.querySelector('.slide-footer span:first-child');
-    if (footerElem && targetSlideNum === totalSlides) {
-      footerElem.textContent = 'Swipe & Save →';
-    }
-
-    return {
-      title: `Slide ${targetSlideNum} (${stage.role.split(' ')[0]})`,
-      html: doc.body.innerHTML,
-    };
-  } catch (err) {
-    // Graceful fallback string replacement
-    const updatedHtml = baseHtml
-      .replace(
-        /(<h[1-3][^>]*>)(.*?)(<\/h[1-3]>)/i,
-        `$1${stage.headline}$3`
-      )
-      .replace(/(<p[^>]*>)(.*?)(<\/p>)/i, `$1${stage.body}$3`)
-      .replace(
-        /(class=["'][^"']*badge-number[^"']*["'][^>]*>)(.*?)(<\/span>)/i,
-        `$10${targetSlideNum} / 0${totalSlides}$3`
-      );
-
-    return {
-      title: `Slide ${targetSlideNum}`,
-      html: updatedHtml,
-    };
-  }
-}
-
 export default function ContentStudioPage() {
   const { getCurrentBusiness, setTopbarLoading } = useWorkspaceStore();
   const business = getCurrentBusiness();
@@ -736,7 +629,11 @@ export default function ContentStudioPage() {
     'editor'
   );
   const [copyFeedback, setCopyFeedback] = useState(false);
-  const [aiFeedbackToast, setAiFeedbackToast] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Multi-Slide Import Modal State
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importHtmlInput, setImportHtmlInput] = useState('');
 
   const currentCodeSlide = codeSlides[activeCodeSlideIndex] || codeSlides[0];
 
@@ -762,105 +659,208 @@ export default function ContentStudioPage() {
     setActiveCodeSlideIndex(0);
     setCompiledImages([]);
     setActiveCodeTab('editor');
+    setToastMessage(`Loaded preset: ${selected.name}`);
+    setTimeout(() => setToastMessage(null), 3000);
   };
 
   // ----------------------------------------------------------------------------
-  // AI CONTENT WRITER: Automatically generate content for next slide from template
+  // PER-SLIDE ACTIONS: Paste from clipboard, duplicate, reorder, clear, add
   // ----------------------------------------------------------------------------
-  const handleAiGenerateNextSlide = () => {
-    setTopbarLoading(true);
-    const nextSlideNum = codeSlides.length + 1;
-    const baseHtml = currentCodeSlide.html;
-
-    setTimeout(() => {
-      setTopbarLoading(false);
-      const generated = generateNextSlideFromTemplate(
-        baseHtml,
-        nextSlideNum,
-        nextSlideNum,
-        promptObjective || 'AI Marketing Operations'
-      );
-
-      const newSlideItem: CodeSlideItem = {
-        id: `code-slide-${Date.now()}`,
-        slideNumber: nextSlideNum,
-        title: generated.title,
-        html: generated.html,
-      };
-
-      const updatedSlides = [...codeSlides, newSlideItem];
-      setCodeSlides(updatedSlides);
-      setActiveCodeSlideIndex(updatedSlides.length - 1);
-      setCompiledImages([]);
-
-      setAiFeedbackToast(
-        `✨ AI Content Writer crafted Slide ${nextSlideNum} using your HTML template!`
-      );
-      setTimeout(() => setAiFeedbackToast(null), 3500);
-    }, 500);
-  };
-
-  // ----------------------------------------------------------------------------
-  // AI CONTENT WRITER: Generate Complete 5-Slide Sequence from Current Design
-  // ----------------------------------------------------------------------------
-  const handleAiGenerateFullSequence = () => {
-    setTopbarLoading(true);
-    const baseHtml = codeSlides[0]?.html || initialPreset.slides[0].html;
-
-    setTimeout(() => {
-      setTopbarLoading(false);
-      const newSequence: CodeSlideItem[] = [];
-
-      for (let i = 1; i <= 5; i++) {
-        const generated = generateNextSlideFromTemplate(
-          baseHtml,
-          i,
-          5,
-          promptObjective || 'Autonomous Social Marketing'
-        );
-        newSequence.push({
-          id: `seq-slide-${i}-${Date.now()}`,
-          slideNumber: i,
-          title: generated.title,
-          html: generated.html,
-        });
+  const handlePasteFromClipboard = async () => {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        const text = await navigator.clipboard.readText();
+        if (text && text.trim().length > 0) {
+          handleUpdateCurrentSlideHtml(text);
+          setToastMessage(`📋 Pasted code into Slide ${activeCodeSlideIndex + 1}!`);
+          setTimeout(() => setToastMessage(null), 3000);
+          return;
+        }
       }
-
-      setCodeSlides(newSequence);
-      setActiveCodeSlideIndex(0);
-      setCompiledImages([]);
-
-      setAiFeedbackToast(
-        '⚡ Generated complete 5-slide sequence from your design template!'
-      );
-      setTimeout(() => setAiFeedbackToast(null), 3500);
-    }, 700);
+      setToastMessage('Clipboard is empty or browser blocked permission. Please click inside the editor and press Ctrl+V.');
+      setTimeout(() => setToastMessage(null), 3500);
+    } catch (err) {
+      setToastMessage('Click inside the code box and press Ctrl+V to paste.');
+      setTimeout(() => setToastMessage(null), 3500);
+    }
   };
 
-  // Add blank slide
-  const handleAddBlankSlide = () => {
-    const nextNum = codeSlides.length + 1;
-    const baseHtml = currentCodeSlide.html;
+  const handleDuplicateSlide = (idx: number) => {
+    const source = codeSlides[idx];
+    if (!source) return;
     const newSlide: CodeSlideItem = {
-      id: `blank-slide-${Date.now()}`,
+      id: `code-slide-${Date.now()}`,
+      slideNumber: idx + 2,
+      title: `${source.title || `Slide ${idx + 1}`} (Copy)`,
+      html: source.html,
+    };
+    const updated = [...codeSlides];
+    updated.splice(idx + 1, 0, newSlide);
+    const reindexed = updated.map((s, i) => ({
+      ...s,
+      slideNumber: i + 1,
+    }));
+    setCodeSlides(reindexed);
+    setActiveCodeSlideIndex(idx + 1);
+    setCompiledImages([]);
+    setToastMessage(`📑 Duplicated Slide ${idx + 1} to Slide ${idx + 2}!`);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const handleMoveSlide = (fromIdx: number, direction: 'prev' | 'next') => {
+    const toIdx = direction === 'prev' ? fromIdx - 1 : fromIdx + 1;
+    if (toIdx < 0 || toIdx >= codeSlides.length) return;
+    const updated = [...codeSlides];
+    const temp = updated[fromIdx];
+    updated[fromIdx] = updated[toIdx];
+    updated[toIdx] = temp;
+    const reindexed = updated.map((s, i) => ({
+      ...s,
+      slideNumber: i + 1,
+    }));
+    setCodeSlides(reindexed);
+    setActiveCodeSlideIndex(toIdx);
+    setCompiledImages([]);
+  };
+
+  const handleClearCurrentSlide = () => {
+    handleUpdateCurrentSlideHtml('');
+    setToastMessage(`Cleared code for Slide ${activeCodeSlideIndex + 1}. Ready for paste.`);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  const handleUpdateSlideTitle = (idx: number, title: string) => {
+    setCodeSlides((prev) =>
+      prev.map((s, i) => (i === idx ? { ...s, title } : s))
+    );
+  };
+
+  const handleAddSlide = () => {
+    const nextNum = codeSlides.length + 1;
+    const starterHtml = `<style>
+  .carousel-slide {
+    width: 360px;
+    height: 450px;
+    background: #0b1120;
+    color: #ffffff;
+    font-family: 'Inter', -apple-system, sans-serif;
+    padding: 32px;
+    border-radius: 18px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    box-sizing: border-box;
+    position: relative;
+    overflow: hidden;
+  }
+  .tag {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #60a5fa;
+    background: rgba(96, 165, 250, 0.15);
+    padding: 4px 10px;
+    border-radius: 9999px;
+    display: inline-block;
+  }
+  .headline {
+    font-size: 22px;
+    font-weight: 800;
+    color: #ffffff;
+    margin: 16px 0 8px 0;
+  }
+  .body {
+    font-size: 14px;
+    line-height: 1.6;
+    color: #94a3b8;
+  }
+  .slide-footer {
+    display: flex;
+    justify-content: space-between;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    padding-top: 12px;
+    font-size: 12px;
+    color: #64748b;
+  }
+</style>
+
+<div class="carousel-slide">
+  <div>
+    <span class="tag">Slide ${nextNum}</span>
+    <h2 class="headline">Slide ${nextNum} Headline</h2>
+    <p class="body">Paste your HTML or customize this slide text.</p>
+  </div>
+  <div class="slide-footer">
+    <span>Synergy Carousel</span>
+    <span>0${nextNum}</span>
+  </div>
+</div>`;
+
+    const newSlide: CodeSlideItem = {
+      id: `code-slide-${Date.now()}`,
       slideNumber: nextNum,
       title: `Slide ${nextNum}`,
-      html: baseHtml,
+      html: starterHtml,
     };
     setCodeSlides([...codeSlides, newSlide]);
     setActiveCodeSlideIndex(codeSlides.length);
     setCompiledImages([]);
+    setToastMessage(`✨ Added Slide ${nextNum}! Ready to paste your code.`);
+    setTimeout(() => setToastMessage(null), 3000);
   };
 
-  // Delete current slide
   const handleDeleteSlide = (idx: number) => {
     if (codeSlides.length <= 1) return;
     const filtered = codeSlides
       .filter((_, i) => i !== idx)
-      .map((s, i) => ({ ...s, slideNumber: i + 1, title: `Slide ${i + 1}` }));
+      .map((s, i) => ({ ...s, slideNumber: i + 1, title: s.title || `Slide ${i + 1}` }));
     setCodeSlides(filtered);
     setActiveCodeSlideIndex(Math.max(0, idx - 1));
     setCompiledImages([]);
+    setToastMessage(`Deleted slide. ${filtered.length} slides remaining.`);
+    setTimeout(() => setToastMessage(null), 2500);
+  };
+
+  // Multi-Slide Import handler (splits multi-slide HTML into individual slides)
+  const handleImportMultiSlide = () => {
+    if (!importHtmlInput.trim()) return;
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(importHtmlInput, 'text/html');
+
+      const styles = Array.from(doc.querySelectorAll('style'))
+        .map((s) => s.outerHTML)
+        .join('\n');
+
+      let slideNodes = Array.from(doc.querySelectorAll('.carousel-slide'));
+      if (slideNodes.length === 0) {
+        slideNodes = Array.from(doc.querySelectorAll('.slide, section, .card-slide'));
+      }
+
+      if (slideNodes.length > 0) {
+        const parsed: CodeSlideItem[] = slideNodes.map((node, i) => ({
+          id: `imported-slide-${i + 1}-${Date.now()}`,
+          slideNumber: i + 1,
+          title: `Slide ${i + 1}`,
+          html: `${styles ? styles + '\n' : ''}${node.outerHTML}`,
+        }));
+        setCodeSlides(parsed);
+        setActiveCodeSlideIndex(0);
+        setCompiledImages([]);
+        setIsImportModalOpen(false);
+        setImportHtmlInput('');
+        setToastMessage(`✅ Successfully imported and split ${parsed.length} slides!`);
+        setTimeout(() => setToastMessage(null), 3500);
+      } else {
+        handleUpdateCurrentSlideHtml(importHtmlInput);
+        setIsImportModalOpen(false);
+        setImportHtmlInput('');
+        setToastMessage(`Pasted code into Slide ${activeCodeSlideIndex + 1}!`);
+        setTimeout(() => setToastMessage(null), 3000);
+      }
+    } catch (err: any) {
+      alert('Could not parse HTML: ' + err.message);
+    }
   };
 
   // ----------------------------------------------------------------------------
@@ -1297,19 +1297,19 @@ export default function ContentStudioPage() {
                 <h2 className="font-heading font-extrabold text-base tracking-tight">
                   HTML Code-to-Carousel Studio
                 </h2>
-                <span className="text-[10px] font-mono uppercase bg-blue-500/20 text-blue-300 border border-blue-400/30 px-2 py-0.5 rounded-full font-bold">
-                  AI Content Writer Active
+                <span className="text-[10px] font-mono uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-2 py-0.5 rounded-full font-bold">
+                  Per-Slide Code Architecture
                 </span>
               </div>
               <p className="text-xs text-slate-300 mt-0.5">
-                Set your custom HTML/CSS design template once. Then use the AI Content Writer to automatically extrapolate the next slides, or paste custom code for any specific slide.
+                Paste and customize HTML/CSS for each slide individually. Preview instantly in real time and compile to 2x retina images for social publishing.
               </p>
             </div>
           </div>
 
           {/* Quick Presets Menu */}
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[11px] font-medium text-slate-400">Design Presets:</span>
+            <span className="text-[11px] font-medium text-slate-400">Theme Presets:</span>
             {Object.entries(PRESET_COLLECTIONS).map(([key, preset]) => (
               <button
                 key={key}
@@ -1323,16 +1323,16 @@ export default function ContentStudioPage() {
           </div>
         </div>
 
-        {/* AI Action Toast Alert */}
-        {aiFeedbackToast && (
+        {/* Toast Alert */}
+        {toastMessage && (
           <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold flex items-center justify-between animate-fade-in shadow-sm">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-emerald-600" />
-              <span>{aiFeedbackToast}</span>
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              <span>{toastMessage}</span>
             </div>
             <button
               type="button"
-              onClick={() => setAiFeedbackToast(null)}
+              onClick={() => setToastMessage(null)}
               className="text-emerald-700 hover:text-emerald-900"
             >
               <X className="w-4 h-4" />
@@ -1340,9 +1340,9 @@ export default function ContentStudioPage() {
           </div>
         )}
 
-        {/* Slide Selector & AI Generator Navigation Strip */}
+        {/* Slide Selector & Per-Slide Management Bar */}
         <div className="card p-3 flex flex-wrap items-center justify-between gap-3 bg-slate-50 border border-slate-200">
-          {/* Left: Slide Tabs */}
+          {/* Left: Slide Selector Tabs */}
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mr-1">
               Slides ({codeSlides.length}):
@@ -1370,36 +1370,58 @@ export default function ContentStudioPage() {
 
             <button
               type="button"
-              onClick={handleAddBlankSlide}
-              className="p-1.5 rounded-lg border border-dashed border-slate-300 bg-white hover:bg-slate-100 text-slate-600 text-xs flex items-center gap-1 font-semibold"
-              title="Add New Slide"
+              onClick={handleAddSlide}
+              className="px-2.5 py-1.5 rounded-lg border border-dashed border-blue-400 bg-blue-50/60 hover:bg-blue-100/80 text-blue-700 text-xs flex items-center gap-1 font-bold transition-all"
+              title="Add New Blank Slide"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Add Slide</span>
             </button>
           </div>
 
-          {/* Right: AI Content Writer Actions */}
-          <div className="flex items-center gap-2">
+          {/* Right: Slide Controls & Multi-Slide Import */}
+          <div className="flex items-center gap-1.5 flex-wrap">
             <button
               type="button"
-              onClick={handleAiGenerateNextSlide}
-              className="btn btn-secondary text-xs flex items-center gap-1.5 !bg-white hover:!bg-slate-100 border border-slate-300 text-neutral-900 shadow-sm font-bold"
-              title="Auto-generates the next logical slide in your narrative using your exact HTML design"
+              onClick={handlePasteFromClipboard}
+              className="btn btn-secondary text-xs flex items-center gap-1.5 !bg-emerald-50 hover:!bg-emerald-100 border !border-emerald-300 text-emerald-800 font-bold shadow-sm !py-1 !px-2.5"
+              title="Paste code directly from clipboard into active slide"
             >
-              <Wand2 className="w-3.5 h-3.5 text-blue-600" />
-              <span>✨ AI Generate Next Slide</span>
+              <ClipboardPaste className="w-3.5 h-3.5 text-emerald-700" />
+              <span>Paste Code</span>
             </button>
 
             <button
               type="button"
-              onClick={handleAiGenerateFullSequence}
-              className="btn btn-secondary text-xs flex items-center gap-1.5 !bg-blue-50 hover:!bg-blue-100 border border-blue-200 text-blue-800 font-bold shadow-sm"
-              title="Creates a complete 5-slide carousel framework from Slide 1's design"
+              onClick={() => handleDuplicateSlide(activeCodeSlideIndex)}
+              className="btn btn-secondary text-xs flex items-center gap-1.5 !bg-white hover:!bg-slate-100 border border-slate-300 text-slate-700 font-semibold shadow-sm !py-1 !px-2.5"
+              title="Duplicate current slide"
             >
-              <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-              <span>⚡ Generate 5 Slides</span>
+              <Copy className="w-3.5 h-3.5 text-slate-500" />
+              <span>Duplicate</span>
             </button>
+
+            <div className="flex items-center border border-slate-200 rounded-lg overflow-hidden bg-white">
+              <button
+                type="button"
+                onClick={() => handleMoveSlide(activeCodeSlideIndex, 'prev')}
+                disabled={activeCodeSlideIndex === 0}
+                className="p-1.5 hover:bg-slate-100 text-slate-600 disabled:opacity-30 disabled:hover:bg-transparent"
+                title="Move Slide Left"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+              </button>
+              <span className="w-px h-4 bg-slate-200" />
+              <button
+                type="button"
+                onClick={() => handleMoveSlide(activeCodeSlideIndex, 'next')}
+                disabled={activeCodeSlideIndex === codeSlides.length - 1}
+                className="p-1.5 hover:bg-slate-100 text-slate-600 disabled:opacity-30 disabled:hover:bg-transparent"
+                title="Move Slide Right"
+              >
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
 
             {codeSlides.length > 1 && (
               <button
@@ -1408,9 +1430,21 @@ export default function ContentStudioPage() {
                 className="p-1.5 rounded-lg border border-slate-200 hover:bg-red-50 text-red-500 transition-colors"
                 title="Delete Current Slide"
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="w-3.5 h-3.5" />
               </button>
             )}
+
+            <span className="w-px h-5 bg-slate-300 mx-0.5" />
+
+            <button
+              type="button"
+              onClick={() => setIsImportModalOpen(true)}
+              className="btn btn-secondary text-xs flex items-center gap-1.5 !bg-white hover:!bg-blue-50 border border-slate-300 text-blue-700 font-semibold shadow-sm !py-1 !px-2.5"
+              title="Import a single HTML document with multiple slides"
+            >
+              <UploadCloud className="w-3.5 h-3.5 text-blue-600" />
+              <span>Import Multi-Slide HTML</span>
+            </button>
           </div>
         </div>
 
@@ -1419,43 +1453,70 @@ export default function ContentStudioPage() {
           {/* Left Column (6 Cols): Code Editor & Compiler Toolbar */}
           <div className="col-span-12 lg:col-span-6 space-y-3">
             <div className="card p-4 space-y-3">
-              {/* Editor Top Bar */}
-              <div className="flex items-center justify-between border-b border-border pb-2.5">
+              {/* Editor Top Bar with Editable Title & Quick Actions */}
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border pb-2.5">
                 <div className="flex items-center gap-2">
                   <FileCode className="w-4 h-4 text-blue-600" />
-                  <span className="text-xs font-bold text-neutral-800">
-                    HTML Code for {currentCodeSlide.title || `Slide ${activeCodeSlideIndex + 1}`}
-                  </span>
+                  <input
+                    type="text"
+                    value={currentCodeSlide.title || ''}
+                    onChange={(e) =>
+                      handleUpdateSlideTitle(activeCodeSlideIndex, e.target.value)
+                    }
+                    placeholder={`Slide ${activeCodeSlideIndex + 1} Name`}
+                    className="text-xs font-bold text-neutral-900 bg-slate-100 hover:bg-slate-200/80 focus:bg-white focus:ring-1 focus:ring-blue-500 px-2 py-1 rounded border border-slate-200 outline-none w-36"
+                  />
                   <span className="text-[10px] font-mono bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-200 font-semibold">
-                    Slide {activeCodeSlideIndex + 1} of {codeSlides.length}
+                    {activeCodeSlideIndex + 1} / {codeSlides.length}
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={handlePasteFromClipboard}
+                    className="px-2 py-1 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-semibold flex items-center gap-1"
+                    title="Paste from Clipboard"
+                  >
+                    <ClipboardPaste className="w-3.5 h-3.5 text-emerald-700" />
+                    <span>Paste</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleClearCurrentSlide}
+                    className="px-2 py-1 rounded hover:bg-slate-100 text-slate-600 text-xs flex items-center gap-1 border border-slate-200"
+                    title="Clear current slide code"
+                  >
+                    <Eraser className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Clear</span>
+                  </button>
                   <button
                     type="button"
                     onClick={handleCopyCode}
-                    className="p-1 rounded hover:bg-slate-100 text-slate-500 text-xs flex items-center gap-1"
+                    className="px-2 py-1 rounded hover:bg-slate-100 text-slate-600 text-xs flex items-center gap-1 border border-slate-200"
                     title="Copy Current Slide Code"
                   >
                     {copyFeedback ? (
                       <Check className="w-3.5 h-3.5 text-emerald-600" />
                     ) : (
-                      <Copy className="w-3.5 h-3.5" />
+                      <Copy className="w-3.5 h-3.5 text-slate-500" />
                     )}
-                    <span className="text-[11px]">{copyFeedback ? 'Copied!' : 'Copy'}</span>
+                    <span>{copyFeedback ? 'Copied' : 'Copy'}</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => {
-                      const initialHtml = initialPreset.slides[activeCodeSlideIndex % initialPreset.slides.length].html;
+                      const initialHtml =
+                        initialPreset.slides[
+                          activeCodeSlideIndex % initialPreset.slides.length
+                        ].html;
                       handleUpdateCurrentSlideHtml(initialHtml);
                     }}
-                    className="p-1 rounded hover:bg-slate-100 text-slate-500 text-xs flex items-center gap-1"
-                    title="Reset Current Slide"
+                    className="px-2 py-1 rounded hover:bg-slate-100 text-slate-500 text-xs flex items-center gap-1"
+                    title="Reset to Template"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
-                    <span className="text-[11px]">Reset</span>
+                    <span>Reset</span>
                   </button>
                 </div>
               </div>
@@ -1469,7 +1530,12 @@ export default function ContentStudioPage() {
                     <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 inline-block" />
                     <span className="ml-2 text-slate-400">slide-{activeCodeSlideIndex + 1}.html</span>
                   </div>
-                  <span>Customize HTML for this slide</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-slate-500">
+                      {currentCodeSlide.html.length} chars
+                    </span>
+                    <span className="text-slate-400">Paste or edit HTML for this slide</span>
+                  </div>
                 </div>
 
                 <textarea
@@ -1478,14 +1544,14 @@ export default function ContentStudioPage() {
                   rows={18}
                   spellCheck={false}
                   className="w-full p-4 bg-[#070b13] text-emerald-400 font-mono text-[12.5px] leading-relaxed outline-none resize-y selection:bg-blue-600 selection:text-white"
-                  placeholder="<!-- Paste your custom HTML and CSS for this slide here -->"
+                  placeholder={`<!-- Paste your HTML and <style> code for Slide ${activeCodeSlideIndex + 1} here -->`}
                 />
               </div>
 
               {/* Instructions and Compile CTA */}
               <div className="flex items-center justify-between pt-2">
                 <span className="text-[11px] text-slate-500">
-                  You can paste custom HTML code for each slide individually.
+                  Each slide is independent. Changes update the preview immediately.
                 </span>
 
                 <button
@@ -1494,7 +1560,11 @@ export default function ContentStudioPage() {
                   disabled={isCompiling}
                   className="btn btn-primary flex items-center gap-2 cursor-pointer shadow-md hover:shadow-lg transition-all"
                 >
-                  <Play className={`w-3.5 h-3.5 fill-current ${isCompiling ? 'animate-spin' : ''}`} />
+                  <Play
+                    className={`w-3.5 h-3.5 fill-current ${
+                      isCompiling ? 'animate-spin' : ''
+                    }`}
+                  />
                   <span>
                     {isCompiling
                       ? compileProgress || 'Compiling Images...'
@@ -1888,6 +1958,73 @@ export default function ContentStudioPage() {
                   <span>{isScheduling ? 'Publishing...' : 'Publish Immediately'}</span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================================
+          MULTI-SLIDE HTML IMPORT MODAL
+          ======================================================================== */}
+      {isImportModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-300 max-w-xl w-full p-6 space-y-4 animate-scale-up">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600">
+                  <UploadCloud className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-heading font-bold text-base text-neutral-900">
+                    Import Multi-Slide HTML
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Paste an entire HTML document containing multiple slides to extract and split automatically.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsImportModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-semibold text-slate-700 block">
+                Paste Multi-Slide HTML Code:
+              </label>
+              <textarea
+                value={importHtmlInput}
+                onChange={(e) => setImportHtmlInput(e.target.value)}
+                rows={12}
+                placeholder="<style>&#10;  .carousel-slide { width: 360px; height: 450px; ... }&#10;</style>&#10;<div class='carousel-slide'>...</div>&#10;<div class='carousel-slide'>...</div>"
+                className="w-full p-3.5 bg-slate-900 text-emerald-400 font-mono text-xs rounded-xl outline-none border border-slate-700 leading-relaxed resize-y"
+              />
+              <p className="text-[11px] text-slate-500">
+                Synergy detects elements with class <code className="text-blue-600">.carousel-slide</code> or <code className="text-blue-600">.slide</code>, extracts any shared <code className="text-blue-600">&lt;style&gt;</code> blocks, and creates separate slide tabs for each one.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between pt-3 border-t border-slate-200">
+              <button
+                type="button"
+                onClick={() => setIsImportModalOpen(false)}
+                className="btn btn-secondary text-xs"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleImportMultiSlide}
+                disabled={!importHtmlInput.trim()}
+                className="btn btn-primary text-xs flex items-center gap-1.5"
+              >
+                <UploadCloud className="w-3.5 h-3.5" />
+                <span>Extract &amp; Import Slides</span>
+              </button>
             </div>
           </div>
         </div>
