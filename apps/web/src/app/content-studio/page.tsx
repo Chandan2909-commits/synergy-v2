@@ -28,22 +28,35 @@ import {
   Send,
   AlertCircle,
   X,
+  Wand2,
+  Layers as LayersIcon,
+  Maximize2,
 } from 'lucide-react';
 import { SignatureHeroCard } from '@/components/hero/SignatureHeroCard';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { SocialPlatform, CarouselSlide } from '@synergy/types';
 
 // ==============================================================================
-// STARTER HTML/CSS CAROUSEL PRESETS
+// PRESET SLIDE TEMPLATES
 // ==============================================================================
-const CODE_PRESETS: Record<
+interface CodeSlideItem {
+  id: string;
+  slideNumber: number;
+  title: string;
+  html: string;
+}
+
+const PRESET_COLLECTIONS: Record<
   string,
-  { name: string; description: string; code: string }
+  { name: string; description: string; slides: Array<{ title: string; html: string }> }
 > = {
   executiveDark: {
     name: 'Executive Dark (Sapphire Flare)',
     description: '3-slide high-impact presentation with modern dark gradient & pill badges',
-    code: `<style>
+    slides: [
+      {
+        title: 'Hook Slide',
+        html: `<style>
   .carousel-slide {
     width: 360px;
     height: 450px;
@@ -59,7 +72,6 @@ const CODE_PRESETS: Record<
     position: relative;
     overflow: hidden;
     box-shadow: 0 20px 40px rgba(0,0,0,0.4);
-    margin-bottom: 24px;
   }
   .tag {
     font-size: 11px;
@@ -118,7 +130,73 @@ const CODE_PRESETS: Record<
     <span>CrossTech Operations</span>
     <span class="badge-number">01 / 03</span>
   </div>
-</div>
+</div>`,
+      },
+      {
+        title: 'Core Pillar',
+        html: `<style>
+  .carousel-slide {
+    width: 360px;
+    height: 450px;
+    background: linear-gradient(135deg, #0b1120 0%, #111827 50%, #172554 100%);
+    color: #ffffff;
+    font-family: 'Inter', -apple-system, sans-serif;
+    padding: 32px;
+    border-radius: 18px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    box-sizing: border-box;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+  }
+  .tag {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #60a5fa;
+    background: rgba(96, 165, 250, 0.14);
+    padding: 5px 12px;
+    border-radius: 9999px;
+    display: inline-block;
+    border: 1px solid rgba(96, 165, 250, 0.25);
+  }
+  .headline {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 1.25;
+    margin: 18px 0 12px 0;
+    letter-spacing: -0.02em;
+    color: #ffffff;
+  }
+  .body {
+    font-size: 14px;
+    line-height: 1.6;
+    color: #94a3b8;
+    margin: 0;
+  }
+  .slide-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    padding-top: 14px;
+    font-size: 12px;
+    color: #64748b;
+    font-weight: 600;
+  }
+  .badge-number {
+    font-family: monospace;
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.12);
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-weight: 700;
+  }
+</style>
 
 <div class="carousel-slide">
   <div>
@@ -130,7 +208,73 @@ const CODE_PRESETS: Record<
     <span>Brand Safety</span>
     <span class="badge-number">02 / 03</span>
   </div>
-</div>
+</div>`,
+      },
+      {
+        title: 'Scale & Dispatch',
+        html: `<style>
+  .carousel-slide {
+    width: 360px;
+    height: 450px;
+    background: linear-gradient(135deg, #0b1120 0%, #111827 50%, #172554 100%);
+    color: #ffffff;
+    font-family: 'Inter', -apple-system, sans-serif;
+    padding: 32px;
+    border-radius: 18px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    box-sizing: border-box;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+  }
+  .tag {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #60a5fa;
+    background: rgba(96, 165, 250, 0.14);
+    padding: 5px 12px;
+    border-radius: 9999px;
+    display: inline-block;
+    border: 1px solid rgba(96, 165, 250, 0.25);
+  }
+  .headline {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 1.25;
+    margin: 18px 0 12px 0;
+    letter-spacing: -0.02em;
+    color: #ffffff;
+  }
+  .body {
+    font-size: 14px;
+    line-height: 1.6;
+    color: #94a3b8;
+    margin: 0;
+  }
+  .slide-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    padding-top: 14px;
+    font-size: 12px;
+    color: #64748b;
+    font-weight: 600;
+  }
+  .badge-number {
+    font-family: monospace;
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.12);
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-weight: 700;
+  }
+</style>
 
 <div class="carousel-slide">
   <div>
@@ -143,12 +287,17 @@ const CODE_PRESETS: Record<
     <span class="badge-number">03 / 03</span>
   </div>
 </div>`,
+      },
+    ],
   },
 
   minimalLight: {
     name: 'Minimal Editorial (Clean Light)',
     description: 'Clean crisp light aesthetic with subtle borders and bold typography',
-    code: `<style>
+    slides: [
+      {
+        title: 'Hook Slide',
+        html: `<style>
   .carousel-slide {
     width: 360px;
     height: 450px;
@@ -163,7 +312,6 @@ const CODE_PRESETS: Record<
     box-sizing: border-box;
     border: 1px solid #e2e8f0;
     box-shadow: 0 14px 30px rgba(0,0,0,0.06);
-    margin-bottom: 24px;
   }
   .tag {
     font-size: 11px;
@@ -221,7 +369,71 @@ const CODE_PRESETS: Record<
     <span>CrossTech Synergy</span>
     <span class="badge-number">01 / 02</span>
   </div>
-</div>
+</div>`,
+      },
+      {
+        title: 'Solution Slide',
+        html: `<style>
+  .carousel-slide {
+    width: 360px;
+    height: 450px;
+    background: #ffffff;
+    color: #0f172a;
+    font-family: 'Inter', -apple-system, sans-serif;
+    padding: 32px;
+    border-radius: 18px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    box-sizing: border-box;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 14px 30px rgba(0,0,0,0.06);
+  }
+  .tag {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #1d4ed8;
+    background: #eff6ff;
+    padding: 5px 12px;
+    border-radius: 9999px;
+    display: inline-block;
+    border: 1px solid #dbeafe;
+  }
+  .headline {
+    font-family: 'Montserrat', sans-serif;
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 1.25;
+    margin: 18px 0 12px 0;
+    color: #0f172a;
+  }
+  .body {
+    font-size: 14px;
+    line-height: 1.6;
+    color: #475569;
+    margin: 0;
+  }
+  .slide-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid #f1f5f9;
+    padding-top: 14px;
+    font-size: 12px;
+    color: #94a3b8;
+    font-weight: 600;
+  }
+  .badge-number {
+    font-family: monospace;
+    color: #1d4ed8;
+    background: #eff6ff;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-weight: 700;
+  }
+</style>
 
 <div class="carousel-slide">
   <div>
@@ -234,12 +446,17 @@ const CODE_PRESETS: Record<
     <span class="badge-number">02 / 02</span>
   </div>
 </div>`,
+      },
+    ],
   },
 
   statsMetrics: {
     name: 'Growth Metrics & Proof',
     description: 'High-contrast statistics slide with big bold numbers and proof points',
-    code: `<style>
+    slides: [
+      {
+        title: 'Proof Metric',
+        html: `<style>
   .carousel-slide {
     width: 360px;
     height: 450px;
@@ -253,7 +470,6 @@ const CODE_PRESETS: Record<
     justify-content: space-between;
     box-sizing: border-box;
     border: 1px solid #1e293b;
-    margin-bottom: 24px;
   }
   .stat-badge {
     font-size: 11px;
@@ -308,8 +524,121 @@ const CODE_PRESETS: Record<
     <span style="font-family: monospace; color: #10b981;">01 / 01</span>
   </div>
 </div>`,
+      },
+    ],
   },
 };
+
+// ==============================================================================
+// AI CONTENT WRITER HELPER: Extrapolates next slide narrative while maintaining
+// exact user HTML structure, styling, classes, and layout invariants.
+// ==============================================================================
+function generateNextSlideFromTemplate(
+  baseHtml: string,
+  targetSlideNum: number,
+  totalSlides: number,
+  topicHint?: string
+): { title: string; html: string } {
+  // Narrative stages for viral educational social carousels
+  const narrativeStages = [
+    {
+      role: 'Hook & Premise',
+      tag: 'Strategic Hook',
+      headline: `The Unspoken Truth About ${topicHint || 'Operations'}`,
+      body: 'Most leaders assume more manual effort equals higher growth. The real competitive moat is autonomous systemization.',
+    },
+    {
+      role: 'Core Problem & Friction',
+      tag: 'The Bottleneck',
+      headline: 'Where 80% of Marketing Teams Stumble',
+      body: 'Context switching between fragmented tools creates massive operational drag, inconsistent branding, and delayed publishing cycles.',
+    },
+    {
+      role: 'Tactical Framework',
+      tag: 'Execution Model',
+      headline: 'The 3 Pillars of Automated Execution',
+      body: 'By separating strategy, copywriting, and quality verification into autonomous specialized personas, output multiplies without quality loss.',
+    },
+    {
+      role: 'Proof & Metrics',
+      tag: 'Verified Results',
+      headline: 'Compounding Velocity in 30 Days',
+      body: 'Teams adopting deterministic multi-channel publishing increase content frequency by 4.2x while cutting manual production time to near zero.',
+    },
+    {
+      role: 'Action & CTA',
+      tag: 'Next Steps',
+      headline: 'Deploy Your First Autonomous Campaign',
+      body: 'Ready to modernize your marketing workflow? Save this carousel, share with your team, and start automating your content engine today.',
+    },
+  ];
+
+  const stage =
+    narrativeStages[(targetSlideNum - 1) % narrativeStages.length] || narrativeStages[1];
+
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(baseHtml, 'text/html');
+
+    // 1. Update tag
+    const tagElem = doc.querySelector('.tag, .badge, .slide-tag, .stat-badge, span.tag');
+    if (tagElem) {
+      tagElem.textContent = stage.tag;
+    }
+
+    // 2. Update headline
+    const headlineElem = doc.querySelector(
+      '.headline, .title, .slide-title, h1, h2, h3'
+    );
+    if (headlineElem) {
+      headlineElem.textContent = stage.headline;
+    }
+
+    // 3. Update body text
+    const bodyElem = doc.querySelector('.body, .desc, .slide-desc, p.body, p');
+    if (bodyElem) {
+      bodyElem.textContent = stage.body;
+    }
+
+    // 4. Update slide counter badge
+    const badgeNumElem = doc.querySelector(
+      '.badge-number, .slide-num, .slide-number, [data-slide-num]'
+    );
+    if (badgeNumElem) {
+      const paddedCurrent = String(targetSlideNum).padStart(2, '0');
+      const paddedTotal = String(Math.max(targetSlideNum, totalSlides)).padStart(2, '0');
+      badgeNumElem.textContent = `${paddedCurrent} / ${paddedTotal}`;
+    }
+
+    // 5. Update footer text if present
+    const footerElem = doc.querySelector('.slide-footer span:first-child');
+    if (footerElem && targetSlideNum === totalSlides) {
+      footerElem.textContent = 'Swipe & Save →';
+    }
+
+    return {
+      title: `Slide ${targetSlideNum} (${stage.role.split(' ')[0]})`,
+      html: doc.body.innerHTML,
+    };
+  } catch (err) {
+    // Graceful fallback string replacement
+    const updatedHtml = baseHtml
+      .replace(
+        /(<h[1-3][^>]*>)(.*?)(<\/h[1-3]>)/i,
+        `$1${stage.headline}$3`
+      )
+      .replace(/(<p[^>]*>)(.*?)(<\/p>)/i, `$1${stage.body}$3`)
+      .replace(
+        /(class=["'][^"']*badge-number[^"']*["'][^>]*>)(.*?)(<\/span>)/i,
+        `$10${targetSlideNum} / 0${totalSlides}$3`
+      );
+
+    return {
+      title: `Slide ${targetSlideNum}`,
+      html: updatedHtml,
+    };
+  }
+}
 
 export default function ContentStudioPage() {
   const { getCurrentBusiness, setTopbarLoading } = useWorkspaceStore();
@@ -386,9 +715,19 @@ export default function ContentStudioPage() {
   };
 
   // ----------------------------------------------------------------------------
-  // SECTION 2: CODE-TO-CAROUSEL STUDIO (HTML/CSS Compiler & Publisher)
+  // SECTION 2: CODE-TO-CAROUSEL STUDIO (Per-Slide HTML & AI Content Writer)
   // ----------------------------------------------------------------------------
-  const [htmlCode, setHtmlCode] = useState<string>(CODE_PRESETS.executiveDark.code);
+  const initialPreset = PRESET_COLLECTIONS.executiveDark;
+  const [codeSlides, setCodeSlides] = useState<CodeSlideItem[]>(
+    initialPreset.slides.map((s, idx) => ({
+      id: `code-slide-${idx + 1}`,
+      slideNumber: idx + 1,
+      title: s.title,
+      html: s.html,
+    }))
+  );
+
+  const [activeCodeSlideIndex, setActiveCodeSlideIndex] = useState(0);
   const [isCompiling, setIsCompiling] = useState(false);
   const [compileProgress, setCompileProgress] = useState<string | null>(null);
   const [compiledImages, setCompiledImages] = useState<string[]>([]);
@@ -397,42 +736,161 @@ export default function ContentStudioPage() {
     'editor'
   );
   const [copyFeedback, setCopyFeedback] = useState(false);
+  const [aiFeedbackToast, setAiFeedbackToast] = useState<string | null>(null);
 
-  // Hidden Sandbox Ref used for DOM-to-Image rasterization
-  const sandboxRef = useRef<HTMLDivElement>(null);
+  const currentCodeSlide = codeSlides[activeCodeSlideIndex] || codeSlides[0];
 
-  // Count detected slides in HTML code
-  const detectedSlideCount = (htmlCode.match(/class=["'][^"']*carousel-slide[^"']*["']/g) || [])
-    .length || 1;
+  // Update HTML code for the currently active slide
+  const handleUpdateCurrentSlideHtml = (newHtml: string) => {
+    setCodeSlides((prev) =>
+      prev.map((s, idx) => (idx === activeCodeSlideIndex ? { ...s, html: newHtml } : s))
+    );
+  };
 
-  // Compile Handler: Converts HTML elements to real high-res PNG images via JavaScript
+  // Switch Preset
+  const handleSelectPreset = (key: string) => {
+    const selected = PRESET_COLLECTIONS[key];
+    if (!selected) return;
+    setCodeSlides(
+      selected.slides.map((s, idx) => ({
+        id: `code-slide-${idx + 1}-${Date.now()}`,
+        slideNumber: idx + 1,
+        title: s.title,
+        html: s.html,
+      }))
+    );
+    setActiveCodeSlideIndex(0);
+    setCompiledImages([]);
+    setActiveCodeTab('editor');
+  };
+
+  // ----------------------------------------------------------------------------
+  // AI CONTENT WRITER: Automatically generate content for next slide from template
+  // ----------------------------------------------------------------------------
+  const handleAiGenerateNextSlide = () => {
+    setTopbarLoading(true);
+    const nextSlideNum = codeSlides.length + 1;
+    const baseHtml = currentCodeSlide.html;
+
+    setTimeout(() => {
+      setTopbarLoading(false);
+      const generated = generateNextSlideFromTemplate(
+        baseHtml,
+        nextSlideNum,
+        nextSlideNum,
+        promptObjective || 'AI Marketing Operations'
+      );
+
+      const newSlideItem: CodeSlideItem = {
+        id: `code-slide-${Date.now()}`,
+        slideNumber: nextSlideNum,
+        title: generated.title,
+        html: generated.html,
+      };
+
+      const updatedSlides = [...codeSlides, newSlideItem];
+      setCodeSlides(updatedSlides);
+      setActiveCodeSlideIndex(updatedSlides.length - 1);
+      setCompiledImages([]);
+
+      setAiFeedbackToast(
+        `✨ AI Content Writer crafted Slide ${nextSlideNum} using your HTML template!`
+      );
+      setTimeout(() => setAiFeedbackToast(null), 3500);
+    }, 500);
+  };
+
+  // ----------------------------------------------------------------------------
+  // AI CONTENT WRITER: Generate Complete 5-Slide Sequence from Current Design
+  // ----------------------------------------------------------------------------
+  const handleAiGenerateFullSequence = () => {
+    setTopbarLoading(true);
+    const baseHtml = codeSlides[0]?.html || initialPreset.slides[0].html;
+
+    setTimeout(() => {
+      setTopbarLoading(false);
+      const newSequence: CodeSlideItem[] = [];
+
+      for (let i = 1; i <= 5; i++) {
+        const generated = generateNextSlideFromTemplate(
+          baseHtml,
+          i,
+          5,
+          promptObjective || 'Autonomous Social Marketing'
+        );
+        newSequence.push({
+          id: `seq-slide-${i}-${Date.now()}`,
+          slideNumber: i,
+          title: generated.title,
+          html: generated.html,
+        });
+      }
+
+      setCodeSlides(newSequence);
+      setActiveCodeSlideIndex(0);
+      setCompiledImages([]);
+
+      setAiFeedbackToast(
+        '⚡ Generated complete 5-slide sequence from your design template!'
+      );
+      setTimeout(() => setAiFeedbackToast(null), 3500);
+    }, 700);
+  };
+
+  // Add blank slide
+  const handleAddBlankSlide = () => {
+    const nextNum = codeSlides.length + 1;
+    const baseHtml = currentCodeSlide.html;
+    const newSlide: CodeSlideItem = {
+      id: `blank-slide-${Date.now()}`,
+      slideNumber: nextNum,
+      title: `Slide ${nextNum}`,
+      html: baseHtml,
+    };
+    setCodeSlides([...codeSlides, newSlide]);
+    setActiveCodeSlideIndex(codeSlides.length);
+    setCompiledImages([]);
+  };
+
+  // Delete current slide
+  const handleDeleteSlide = (idx: number) => {
+    if (codeSlides.length <= 1) return;
+    const filtered = codeSlides
+      .filter((_, i) => i !== idx)
+      .map((s, i) => ({ ...s, slideNumber: i + 1, title: `Slide ${i + 1}` }));
+    setCodeSlides(filtered);
+    setActiveCodeSlideIndex(Math.max(0, idx - 1));
+    setCompiledImages([]);
+  };
+
+  // ----------------------------------------------------------------------------
+  // COMPILE HANDLER: Reliably rasterizes EVERY slide into 2x Retina PNG images
+  // ----------------------------------------------------------------------------
   const handleCompileCarousel = async () => {
-    if (!sandboxRef.current) return;
     setIsCompiling(true);
     setTopbarLoading(true);
-    setCompileProgress('Initializing renderer...');
+    setCompileProgress('Initializing rasterization engine...');
 
     try {
-      // Dynamically load html-to-image in browser only
       const { toPng } = await import('html-to-image');
-
-      // Find all target slide containers inside sandbox
-      const slideNodes = sandboxRef.current.querySelectorAll('.carousel-slide');
-      const targets =
-        slideNodes.length > 0 ? Array.from(slideNodes) : [sandboxRef.current.firstElementChild || sandboxRef.current];
-
       const images: string[] = [];
 
-      for (let i = 0; i < targets.length; i++) {
-        setCompileProgress(`Compiling Slide ${i + 1} of ${targets.length} (2x Retina)...`);
-        const target = targets[i] as HTMLElement;
+      for (let i = 0; i < codeSlides.length; i++) {
+        setCompileProgress(`Compiling Slide ${i + 1} of ${codeSlides.length} (2x Retina)...`);
 
-        // Render to high-definition PNG data URL
-        const dataUrl = await toPng(target, {
+        const slideContainer = document.getElementById(`sandbox-slide-${i}`);
+        if (!slideContainer) continue;
+
+        // Target the inner slide element or container
+        const targetElement =
+          (slideContainer.querySelector('.carousel-slide') as HTMLElement) ||
+          (slideContainer.firstElementChild as HTMLElement) ||
+          slideContainer;
+
+        const dataUrl = await toPng(targetElement, {
           quality: 0.98,
-          pixelRatio: 2, // 2x crisp 720x900 / 1080x1350 resolution
+          pixelRatio: 2, // 2x crisp 720x900 resolution
           cacheBust: true,
-          filter: (node) => !node.classList?.contains('ignore-render'),
         });
 
         images.push(dataUrl);
@@ -474,9 +932,9 @@ export default function ContentStudioPage() {
     });
   };
 
-  // Copy code to clipboard
+  // Copy current slide HTML
   const handleCopyCode = () => {
-    navigator.clipboard.writeText(htmlCode);
+    navigator.clipboard.writeText(currentCodeSlide.html);
     setCopyFeedback(true);
     setTimeout(() => setCopyFeedback(false), 2000);
   };
@@ -504,7 +962,6 @@ export default function ContentStudioPage() {
       setIsScheduling(false);
       setTopbarLoading(false);
 
-      // Save scheduled carousel to localStorage for Calendar & Dashboard sync
       if (typeof window !== 'undefined') {
         const key = `synergy_scheduled_posts_${business?.id || 'biz-crosstech'}`;
         const existing = JSON.parse(localStorage.getItem(key) || '[]');
@@ -515,7 +972,7 @@ export default function ContentStudioPage() {
           platforms: publishTargetPlatforms,
           scheduledFor: immediate ? new Date().toISOString() : publishDate,
           status: immediate ? 'published' : 'scheduled',
-          slideCount: compiledImages.length,
+          slideCount: compiledImages.length || codeSlides.length,
           previewUrl: compiledImages[0] || null,
           createdAt: new Date().toISOString(),
         };
@@ -826,7 +1283,7 @@ export default function ContentStudioPage() {
       </div>
 
       {/* ========================================================================
-          PART 2: CODE-TO-CAROUSEL STUDIO (HTML/CSS Compiler & Publisher)
+          PART 2: CODE-TO-CAROUSEL STUDIO (Per-Slide HTML & AI Content Writer)
           ======================================================================== */}
       <div id="code-carousel-studio" className="pt-6 border-t-2 border-slate-200 space-y-4">
         {/* Section Header */}
@@ -841,32 +1298,119 @@ export default function ContentStudioPage() {
                   HTML Code-to-Carousel Studio
                 </h2>
                 <span className="text-[10px] font-mono uppercase bg-blue-500/20 text-blue-300 border border-blue-400/30 px-2 py-0.5 rounded-full font-bold">
-                  JavaScript Compiler
+                  AI Content Writer Active
                 </span>
               </div>
               <p className="text-xs text-slate-300 mt-0.5">
-                Paste or write HTML/CSS for your carousel slides. Our JavaScript compiler rasterizes each slide into 2x high-resolution PNG images ready to publish.
+                Set your custom HTML/CSS design template once. Then use the AI Content Writer to automatically extrapolate the next slides, or paste custom code for any specific slide.
               </p>
             </div>
           </div>
 
           {/* Quick Presets Menu */}
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[11px] font-medium text-slate-400">Presets:</span>
-            {Object.entries(CODE_PRESETS).map(([key, preset]) => (
+            <span className="text-[11px] font-medium text-slate-400">Design Presets:</span>
+            {Object.entries(PRESET_COLLECTIONS).map(([key, preset]) => (
               <button
                 key={key}
                 type="button"
-                onClick={() => {
-                  setHtmlCode(preset.code);
-                  setCompiledImages([]);
-                  setActiveCodeTab('editor');
-                }}
+                onClick={() => handleSelectPreset(key)}
                 className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 text-white transition-all"
               >
                 {preset.name.split(' ')[0]}
               </button>
             ))}
+          </div>
+        </div>
+
+        {/* AI Action Toast Alert */}
+        {aiFeedbackToast && (
+          <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold flex items-center justify-between animate-fade-in shadow-sm">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-emerald-600" />
+              <span>{aiFeedbackToast}</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setAiFeedbackToast(null)}
+              className="text-emerald-700 hover:text-emerald-900"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Slide Selector & AI Generator Navigation Strip */}
+        <div className="card p-3 flex flex-wrap items-center justify-between gap-3 bg-slate-50 border border-slate-200">
+          {/* Left: Slide Tabs */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider mr-1">
+              Slides ({codeSlides.length}):
+            </span>
+            {codeSlides.map((s, idx) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => {
+                  setActiveCodeSlideIndex(idx);
+                  setActiveCodeTab('editor');
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all border flex items-center gap-1.5 ${
+                  idx === activeCodeSlideIndex
+                    ? 'bg-neutral-900 text-white border-neutral-900 shadow-sm'
+                    : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                }`}
+              >
+                <span>{s.title || `Slide ${idx + 1}`}</span>
+                {idx === activeCodeSlideIndex && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                )}
+              </button>
+            ))}
+
+            <button
+              type="button"
+              onClick={handleAddBlankSlide}
+              className="p-1.5 rounded-lg border border-dashed border-slate-300 bg-white hover:bg-slate-100 text-slate-600 text-xs flex items-center gap-1 font-semibold"
+              title="Add New Slide"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Slide</span>
+            </button>
+          </div>
+
+          {/* Right: AI Content Writer Actions */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleAiGenerateNextSlide}
+              className="btn btn-secondary text-xs flex items-center gap-1.5 !bg-white hover:!bg-slate-100 border border-slate-300 text-neutral-900 shadow-sm font-bold"
+              title="Auto-generates the next logical slide in your narrative using your exact HTML design"
+            >
+              <Wand2 className="w-3.5 h-3.5 text-blue-600" />
+              <span>✨ AI Generate Next Slide</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleAiGenerateFullSequence}
+              className="btn btn-secondary text-xs flex items-center gap-1.5 !bg-blue-50 hover:!bg-blue-100 border border-blue-200 text-blue-800 font-bold shadow-sm"
+              title="Creates a complete 5-slide carousel framework from Slide 1's design"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+              <span>⚡ Generate 5 Slides</span>
+            </button>
+
+            {codeSlides.length > 1 && (
+              <button
+                type="button"
+                onClick={() => handleDeleteSlide(activeCodeSlideIndex)}
+                className="p-1.5 rounded-lg border border-slate-200 hover:bg-red-50 text-red-500 transition-colors"
+                title="Delete Current Slide"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
 
@@ -880,10 +1424,10 @@ export default function ContentStudioPage() {
                 <div className="flex items-center gap-2">
                   <FileCode className="w-4 h-4 text-blue-600" />
                   <span className="text-xs font-bold text-neutral-800">
-                    HTML / CSS Slide Source Code
+                    HTML Code for {currentCodeSlide.title || `Slide ${activeCodeSlideIndex + 1}`}
                   </span>
-                  <span className="text-[10px] font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded border border-slate-200">
-                    {detectedSlideCount} {detectedSlideCount === 1 ? 'Slide' : 'Slides'} Detected
+                  <span className="text-[10px] font-mono bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-200 font-semibold">
+                    Slide {activeCodeSlideIndex + 1} of {codeSlides.length}
                   </span>
                 </div>
 
@@ -892,7 +1436,7 @@ export default function ContentStudioPage() {
                     type="button"
                     onClick={handleCopyCode}
                     className="p-1 rounded hover:bg-slate-100 text-slate-500 text-xs flex items-center gap-1"
-                    title="Copy Source Code"
+                    title="Copy Current Slide Code"
                   >
                     {copyFeedback ? (
                       <Check className="w-3.5 h-3.5 text-emerald-600" />
@@ -904,11 +1448,11 @@ export default function ContentStudioPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      setHtmlCode(CODE_PRESETS.executiveDark.code);
-                      setCompiledImages([]);
+                      const initialHtml = initialPreset.slides[activeCodeSlideIndex % initialPreset.slides.length].html;
+                      handleUpdateCurrentSlideHtml(initialHtml);
                     }}
                     className="p-1 rounded hover:bg-slate-100 text-slate-500 text-xs flex items-center gap-1"
-                    title="Reset to Template"
+                    title="Reset Current Slide"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span className="text-[11px]">Reset</span>
@@ -923,25 +1467,25 @@ export default function ContentStudioPage() {
                     <span className="w-2.5 h-2.5 rounded-full bg-red-500/80 inline-block" />
                     <span className="w-2.5 h-2.5 rounded-full bg-yellow-500/80 inline-block" />
                     <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 inline-block" />
-                    <span className="ml-2 text-slate-400">carousel-template.html</span>
+                    <span className="ml-2 text-slate-400">slide-{activeCodeSlideIndex + 1}.html</span>
                   </div>
-                  <span>Wrap slides in &lt;div class=&quot;carousel-slide&quot;&gt;</span>
+                  <span>Customize HTML for this slide</span>
                 </div>
 
                 <textarea
-                  value={htmlCode}
-                  onChange={(e) => setHtmlCode(e.target.value)}
+                  value={currentCodeSlide.html}
+                  onChange={(e) => handleUpdateCurrentSlideHtml(e.target.value)}
                   rows={18}
                   spellCheck={false}
                   className="w-full p-4 bg-[#070b13] text-emerald-400 font-mono text-[12.5px] leading-relaxed outline-none resize-y selection:bg-blue-600 selection:text-white"
-                  placeholder="<!-- Paste your HTML and CSS here -->&#10;<style>&#10;  .carousel-slide { width: 360px; height: 450px; background: #111; color: #fff; padding: 24px; }&#10;</style>&#10;&#10;<div class='carousel-slide'>&#10;  <h1>Slide 1</h1>&#10;</div>"
+                  placeholder="<!-- Paste your custom HTML and CSS for this slide here -->"
                 />
               </div>
 
               {/* Instructions and Compile CTA */}
               <div className="flex items-center justify-between pt-2">
                 <span className="text-[11px] text-slate-500">
-                  Tip: CSS inside &lt;style&gt; or inline styles are supported automatically.
+                  You can paste custom HTML code for each slide individually.
                 </span>
 
                 <button
@@ -954,7 +1498,7 @@ export default function ContentStudioPage() {
                   <span>
                     {isCompiling
                       ? compileProgress || 'Compiling Images...'
-                      : 'Compile & Render Images'}
+                      : `Compile All ${codeSlides.length} Slides`}
                   </span>
                 </button>
               </div>
@@ -976,7 +1520,7 @@ export default function ContentStudioPage() {
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    Live Preview
+                    Live Preview (Slide {activeCodeSlideIndex + 1})
                   </button>
                   <button
                     type="button"
@@ -1012,7 +1556,7 @@ export default function ContentStudioPage() {
                       className="btn btn-secondary text-xs flex items-center gap-1 !py-1 !px-2.5"
                     >
                       <Download className="w-3 h-3" />
-                      <span>Download All</span>
+                      <span>Download All ({compiledImages.length})</span>
                     </button>
                   </div>
                 )}
@@ -1020,13 +1564,46 @@ export default function ContentStudioPage() {
 
               {/* TAB 1: Live Interactive HTML Preview */}
               {activeCodeTab === 'editor' && (
-                <div className="flex-1 flex flex-col items-center justify-center p-4 bg-slate-50/70 border border-dashed border-slate-200 rounded-xl overflow-y-auto max-h-[480px]">
-                  <div className="w-full flex justify-center py-2">
-                    {/* Rendered HTML Container */}
+                <div className="flex-1 flex flex-col items-center justify-between p-4 bg-slate-50/70 border border-dashed border-slate-200 rounded-xl overflow-hidden">
+                  <div className="w-full flex items-center justify-between text-xs pb-2 border-b border-slate-200/60 mb-2">
+                    <span className="font-bold text-slate-700">
+                      {currentCodeSlide.title || `Slide ${activeCodeSlideIndex + 1}`} Preview
+                    </span>
+                    <div className="flex items-center gap-1 text-slate-500 font-mono text-[11px]">
+                      <span>{activeCodeSlideIndex + 1} / {codeSlides.length}</span>
+                    </div>
+                  </div>
+
+                  <div className="w-full flex justify-center py-2 overflow-y-auto max-h-[380px]">
                     <div
-                      dangerouslySetInnerHTML={{ __html: htmlCode }}
-                      className="flex flex-col items-center gap-4"
+                      dangerouslySetInnerHTML={{ __html: currentCodeSlide.html }}
+                      className="flex flex-col items-center"
                     />
+                  </div>
+
+                  {/* Previous / Next Slide Selector in Preview */}
+                  <div className="flex items-center gap-2 pt-2 border-t border-slate-200/60 w-full justify-center">
+                    <button
+                      type="button"
+                      onClick={() => setActiveCodeSlideIndex((p) => Math.max(0, p - 1))}
+                      disabled={activeCodeSlideIndex === 0}
+                      className="p-1 rounded border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-30"
+                    >
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                    <span className="text-xs font-semibold text-slate-600">
+                      Slide {activeCodeSlideIndex + 1} of {codeSlides.length}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setActiveCodeSlideIndex((p) => Math.min(codeSlides.length - 1, p + 1))
+                      }
+                      disabled={activeCodeSlideIndex === codeSlides.length - 1}
+                      className="p-1 rounded border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-30"
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
               )}
@@ -1043,7 +1620,7 @@ export default function ContentStudioPage() {
                         No Compiled Images Yet
                       </h4>
                       <p className="text-xs text-slate-500 max-w-xs mx-auto">
-                        Click the &ldquo;Compile &amp; Render Images&rdquo; button to convert your HTML code into 2x retina social slides.
+                        Click the &ldquo;Compile All {codeSlides.length} Slides&rdquo; button to convert your HTML slides into 2x retina social assets.
                       </p>
                       <button
                         type="button"
@@ -1130,10 +1707,10 @@ export default function ContentStudioPage() {
                   {compiledImages.length > 0 ? (
                     <span className="text-emerald-700 font-semibold flex items-center gap-1.5">
                       <CheckCircle2 className="w-3.5 h-3.5" />
-                      <span>{compiledImages.length} Slides Rasterized & Ready</span>
+                      <span>{compiledImages.length} Slides Rasterized & Ready to Publish</span>
                     </span>
                   ) : (
-                    <span>Ready to compile HTML into publication assets</span>
+                    <span>Ready to compile {codeSlides.length} HTML slides into social assets</span>
                   )}
                 </div>
 
@@ -1159,20 +1736,27 @@ export default function ContentStudioPage() {
       </div>
 
       {/* ========================================================================
-          HIDDEN SANDBOX DOM CONTAINER (Used by html-to-image)
+          MULTI-SLIDE SANDBOX DOM CONTAINER (Mounted for reliable rasterization)
           ======================================================================== */}
       <div
         style={{
-          position: 'fixed',
-          left: '-99999px',
+          position: 'absolute',
+          left: '0',
           top: '-99999px',
-          width: '800px',
+          width: 'max-content',
           opacity: 0,
           pointerEvents: 'none',
           zIndex: -9999,
         }}
       >
-        <div ref={sandboxRef} dangerouslySetInnerHTML={{ __html: htmlCode }} />
+        {codeSlides.map((s, idx) => (
+          <div
+            key={s.id}
+            id={`sandbox-slide-${idx}`}
+            style={{ display: 'inline-block', marginRight: '40px' }}
+            dangerouslySetInnerHTML={{ __html: s.html }}
+          />
+        ))}
       </div>
 
       {/* ========================================================================
@@ -1262,7 +1846,7 @@ export default function ContentStudioPage() {
               <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between text-slate-600 text-xs">
                 <span>Slides Attached:</span>
                 <span className="font-mono font-bold text-neutral-900">
-                  {compiledImages.length || detectedSlideCount} Images Ready
+                  {compiledImages.length || codeSlides.length} Images Ready
                 </span>
               </div>
 
