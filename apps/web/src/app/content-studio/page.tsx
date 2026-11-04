@@ -1380,43 +1380,6 @@ export default function ContentStudioPage() {
           ======================================================================== */}
       {activeStudioMode === 'code' && (
         <div id="code-carousel-studio" className="space-y-4 animate-fade-in">
-          {/* Section Header */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-gradient-to-r from-slate-900 via-neutral-900 to-blue-950 p-5 rounded-2xl text-white shadow-lg">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-400">
-                <Code2 className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="font-heading font-extrabold text-base tracking-tight">
-                    HTML Code-to-Carousel Studio
-                  </h2>
-                  <span className="text-[10px] font-mono uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 px-2 py-0.5 rounded-full font-bold">
-                    Per-Slide Code Architecture
-                  </span>
-                </div>
-                <p className="text-xs text-slate-300 mt-0.5">
-                  Paste and customize HTML/CSS for each slide individually. Preview instantly in real time and compile to 2x retina images for social publishing.
-                </p>
-              </div>
-            </div>
-
-            {/* Quick Presets Menu */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[11px] font-medium text-slate-400">Theme Presets:</span>
-              {Object.entries(PRESET_COLLECTIONS).map(([key, preset]) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => handleSelectPreset(key)}
-                  className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 text-white transition-all"
-                >
-                  {preset.name.split(' ')[0]}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Toast Alert */}
           {toastMessage && (
             <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-semibold flex items-center justify-between animate-fade-in shadow-sm">
