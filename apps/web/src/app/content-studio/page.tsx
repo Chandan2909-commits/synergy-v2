@@ -864,12 +864,104 @@ export default function ContentStudioPage() {
   };
 
   // ----------------------------------------------------------------------------
-  // COMPILE HANDLER: Reliably rasterizes EVERY slide into 2x Retina PNG images
+  // COMPILE HANDLER: Reliably rasterizes EVERY slide into crisp 2x Retina PNG images
+  // Dual-strategy: Primary DOM capture + Isolated HTML5 Iframe Fallback
   // ----------------------------------------------------------------------------
+  const extractSlideDimensions = (html: string) => {
+    let width = 360;
+    let height = 450;
+    const widthMatch = html.match(/width:\s*(\d+)px/i);
+    const heightMatch = html.match(/height:\s*(\d+)px/i);
+    if (widthMatch && parseInt(widthMatch[1], 10) >= 100) {
+      width = parseInt(widthMatch[1], 10);
+    }
+    if (heightMatch && parseInt(heightMatch[1], 10) >= 100) {
+      height = parseInt(heightMatch[1], 10);
+    }
+    return { width, height };
+  };
+
+  const isValidPngDataUrl = (url: any): boolean => {
+    return (
+      typeof url === 'string' &&
+      url.startsWith('data:image/png;base64,') &&
+      url.length > 250
+    );
+  };
+
+  const renderSlideViaIframe = async (
+    html: string,
+    width: number,
+    height: number
+  ): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.left = '-9999px';
+      iframe.style.top = '0';
+      iframe.style.width = `${width}px`;
+      iframe.style.height = `${height}px`;
+      iframe.style.border = 'none';
+      iframe.style.opacity = '1';
+      iframe.style.pointerEvents = 'none';
+      iframe.style.zIndex = '-9999';
+      document.body.appendChild(iframe);
+
+      const doc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (!doc) {
+        document.body.removeChild(iframe);
+        return reject(new Error('Iframe context unavailable'));
+      }
+
+      doc.open();
+      doc.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><style>* { box-sizing: border-box; } html, body { margin: 0; padding: 0; width: ${width}px; height: ${height}px; overflow: hidden; background: transparent; }</style></head><body>${html}</body></html>`);
+      doc.close();
+
+      setTimeout(async () => {
+        try {
+          const { toPng } = await import('html-to-image');
+          const target =
+            (doc.body.querySelector('.carousel-slide') as HTMLElement) ||
+            (doc.body.firstElementChild as HTMLElement) ||
+            doc.body;
+
+          const result = await toPng(target, {
+            width,
+            height,
+            canvasWidth: width * 2,
+            canvasHeight: height * 2,
+            pixelRatio: 2,
+            skipFonts: true,
+            cacheBust: false,
+            style: {
+              transform: 'none',
+              opacity: '1',
+              visibility: 'visible',
+              margin: '0',
+              padding: '0',
+            },
+          });
+
+          document.body.removeChild(iframe);
+          if (isValidPngDataUrl(result)) {
+            resolve(result);
+          } else {
+            reject(new Error('Iframe produced empty image'));
+          }
+        } catch (err) {
+          if (document.body.contains(iframe)) {
+            document.body.removeChild(iframe);
+          }
+          reject(err);
+        }
+      }, 160);
+    });
+  };
+
   const handleCompileCarousel = async () => {
     setIsCompiling(true);
     setTopbarLoading(true);
-    setCompileProgress('Initializing rasterization engine...');
+    setCompileProgress('Initializing 2x retina rasterization engine...');
 
     try {
       const { toPng } = await import('html-to-image');
@@ -877,32 +969,82 @@ export default function ContentStudioPage() {
 
       for (let i = 0; i < codeSlides.length; i++) {
         setCompileProgress(`Compiling Slide ${i + 1} of ${codeSlides.length} (2x Retina)...`);
+        const slideItem = codeSlides[i];
+        const dims = extractSlideDimensions(slideItem.html);
 
+        let dataUrl = '';
+
+        // Strategy 1: Render from DOM sandbox with style tag inlined
         const slideContainer = document.getElementById(`sandbox-slide-${i}`);
-        if (!slideContainer) continue;
+        if (slideContainer) {
+          try {
+            const innerSlide =
+              (slideContainer.querySelector('.carousel-slide') as HTMLElement) ||
+              (Array.from(slideContainer.children).find(
+                (c) => c.tagName.toLowerCase() !== 'style'
+              ) as HTMLElement) ||
+              slideContainer;
 
-        // Target the inner slide element or container
-        const targetElement =
-          (slideContainer.querySelector('.carousel-slide') as HTMLElement) ||
-          (slideContainer.firstElementChild as HTMLElement) ||
-          slideContainer;
+            // Embed any sibling <style> tags inside the captured element
+            const styleTags = Array.from(slideContainer.querySelectorAll('style'));
+            styleTags.forEach((st) => {
+              if (innerSlide !== slideContainer && !innerSlide.contains(st)) {
+                innerSlide.prepend(st.cloneNode(true));
+              }
+            });
 
-        const dataUrl = await toPng(targetElement, {
-          quality: 0.98,
-          pixelRatio: 2, // 2x crisp 720x900 resolution
-          cacheBust: true,
-        });
+            const measuredWidth =
+              innerSlide.offsetWidth > 100 ? innerSlide.offsetWidth : dims.width;
+            const measuredHeight =
+              innerSlide.offsetHeight > 100 ? innerSlide.offsetHeight : dims.height;
 
-        images.push(dataUrl);
+            const res = await toPng(innerSlide, {
+              width: measuredWidth,
+              height: measuredHeight,
+              canvasWidth: measuredWidth * 2,
+              canvasHeight: measuredHeight * 2,
+              pixelRatio: 2,
+              skipFonts: true,
+              cacheBust: false,
+              style: {
+                transform: 'none',
+                opacity: '1',
+                visibility: 'visible',
+                margin: '0',
+                padding: '0',
+              },
+            });
+
+            if (isValidPngDataUrl(res)) {
+              dataUrl = res;
+            }
+          } catch (domErr) {
+            console.warn(`DOM rasterization failed for slide ${i + 1}, using iframe fallback:`, domErr);
+          }
+        }
+
+        // Strategy 2: If DOM capture was empty or failed, use isolated HTML5 iframe
+        if (!isValidPngDataUrl(dataUrl)) {
+          setCompileProgress(`Optimizing Slide ${i + 1} via isolated iframe...`);
+          dataUrl = await renderSlideViaIframe(slideItem.html, dims.width, dims.height);
+        }
+
+        if (isValidPngDataUrl(dataUrl)) {
+          images.push(dataUrl);
+        } else {
+          throw new Error(`Slide ${i + 1} produced invalid image data.`);
+        }
       }
 
       setCompiledImages(images);
       setActiveCompiledIndex(0);
       setActiveCodeTab('compiled');
       setCompileProgress(null);
+      setToastMessage(`✅ Successfully compiled ${images.length} slides into 2x Retina PNGs!`);
+      setTimeout(() => setToastMessage(null), 3500);
     } catch (err: any) {
       console.error('Compilation failed:', err);
-      alert(`Compilation failed: ${err.message}`);
+      alert(`Compilation failed: ${err.message || 'Unknown error'}`);
     } finally {
       setIsCompiling(false);
       setTopbarLoading(false);
@@ -1809,21 +1951,30 @@ export default function ContentStudioPage() {
           MULTI-SLIDE SANDBOX DOM CONTAINER (Mounted for reliable rasterization)
           ======================================================================== */}
       <div
+        id="carousel-raster-sandbox"
         style={{
-          position: 'absolute',
-          left: '0',
-          top: '-99999px',
-          width: 'max-content',
-          opacity: 0,
+          position: 'fixed',
+          left: '-9999px',
+          top: '0',
+          width: 'auto',
+          opacity: 1, // Must be 1 so canvas paints pixels
           pointerEvents: 'none',
           zIndex: -9999,
+          visibility: 'visible',
         }}
       >
         {codeSlides.map((s, idx) => (
           <div
             key={s.id}
             id={`sandbox-slide-${idx}`}
-            style={{ display: 'inline-block', marginRight: '40px' }}
+            style={{
+              display: 'inline-block',
+              position: 'relative',
+              verticalAlign: 'top',
+              margin: '0 20px 0 0',
+              padding: 0,
+              boxSizing: 'border-box',
+            }}
             dangerouslySetInnerHTML={{ __html: s.html }}
           />
         ))}
