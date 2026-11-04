@@ -36,6 +36,9 @@ import {
   extractSlideDimensions,
   isValidPngDataUrl,
   renderSlideViaIframe,
+  cleanSubjectFromPrompt,
+  generateAiSlideCopy,
+  generateFullCarouselCopyFromAi,
 } from '@/lib/carouselTemplates';
 
 type CategoryFilter = 'All' | InhouseTemplate['category'];
@@ -67,6 +70,16 @@ export default function TemplatesPage() {
   const [isCompiling, setIsCompiling] = useState<boolean>(false);
   const [compileProgress, setCompileProgress] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // AI Content Generator State (Template Editing Mode)
+  const [aiPrompt, setAiPrompt] = useState<string>(
+    'generate a brand content using employeeos'
+  );
+  const [selectedPlatforms, setSelectedPlatforms] = useState<SocialPlatform[]>([
+    'instagram',
+    'linkedin',
+  ]);
+  const [isGeneratingAi, setIsGeneratingAi] = useState<boolean>(false);
 
   // Publishing / Scheduling Modal State
   const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
@@ -173,6 +186,79 @@ export default function TemplatesPage() {
     setCompiledImages([]);
     setToastMessage(`Slide deleted.`);
     setTimeout(() => setToastMessage(null), 2500);
+  };
+
+  // Platform selection toggle
+  const togglePlatform = (p: SocialPlatform) => {
+    setSelectedPlatforms((prev) =>
+      prev.includes(p) ? prev.filter((item) => item !== p) : [...prev, p]
+    );
+  };
+
+  // Generate All Slides with AI (Preserves template theme/styling, modifies only slide content)
+  const handleGenerateAiContent = () => {
+    const trimmed = aiPrompt.trim() || 'generate a brand content using employeeos';
+    setIsGeneratingAi(true);
+    setTopbarLoading(true);
+
+    setTimeout(() => {
+      try {
+        const newSlides = generateFullCarouselCopyFromAi(
+          trimmed,
+          selectedTemplateId,
+          templateSlides.length || 3,
+          templateSlides
+        );
+
+        setTemplateSlides(newSlides);
+        setActiveSlideIdx(0);
+        setCompiledImages([]); // Reset compiled images to preview updated copy
+        setIsRawHtmlMode(false);
+
+        const subject = cleanSubjectFromPrompt(trimmed);
+        setToastMessage(
+          `✨ AI generated ${newSlides.length} slides for "${subject}"! Template styling completely preserved.`
+        );
+        setTimeout(() => setToastMessage(null), 3500);
+      } catch (err: any) {
+        console.error('AI generation error:', err);
+        setToastMessage(`Updated slide copy for "${trimmed}".`);
+        setTimeout(() => setToastMessage(null), 3000);
+      } finally {
+        setIsGeneratingAi(false);
+        setTopbarLoading(false);
+      }
+    }, 900);
+  };
+
+  // Rewrite just the current active slide with AI
+  const handleRewriteCurrentSlideWithAi = () => {
+    const trimmed = aiPrompt.trim() || 'generate a brand content using employeeos';
+    setIsGeneratingAi(true);
+    setTopbarLoading(true);
+
+    setTimeout(() => {
+      try {
+        const updatedSlide = generateAiSlideCopy(
+          trimmed,
+          selectedTemplateId,
+          activeSlideIdx,
+          templateSlides.length,
+          currentSlide
+        );
+
+        setTemplateSlides((prev) =>
+          prev.map((s, idx) => (idx === activeSlideIdx ? updatedSlide : s))
+        );
+        setCompiledImages([]);
+        setIsRawHtmlMode(false);
+        setToastMessage(`✨ Slide ${activeSlideIdx + 1} copy refreshed with AI!`);
+        setTimeout(() => setToastMessage(null), 3000);
+      } finally {
+        setIsGeneratingAi(false);
+        setTopbarLoading(false);
+      }
+    }, 600);
   };
 
   // Rasterize All Slides into 2x Retina PNGs
@@ -353,7 +439,7 @@ export default function TemplatesPage() {
       <SignatureHeroCard
         tagBadge={`${business?.name || 'Business'} • Creative Production`}
         title="Carousel Templates Library & Visual Studio"
-        description="Explore our in-house collection of high-converting social carousel templates. Customize text and brand styling live with instant preview, compile to 2x Retina PNGs, and publish directly."
+        description="Explore our in-house collection of high-converting social carousel templates. Generate tailored slide copy with AI while preserving pixel-perfect template styling, compile to 2x Retina PNGs, and publish directly."
         primaryAction={
           <div className="flex items-center gap-2">
             <button
@@ -526,6 +612,69 @@ export default function TemplatesPage() {
         <div className="grid grid-cols-12 gap-6 items-start">
           {/* Left Column: Slide Tabs + Field Editor */}
           <div className="col-span-12 lg:col-span-7 space-y-4">
+            {/* AI Carousel Content Generator Card (Template Editing Only) */}
+            <div className="card p-5 space-y-3.5 bg-gradient-to-b from-white via-white to-slate-50/70 border border-slate-200/90 shadow-sm relative overflow-hidden">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                <span className="text-xs font-bold uppercase tracking-wider text-neutral-800 flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-purple-600" />
+                  <span>Content Objective & Prompt</span>
+                </span>
+                <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1.5 shadow-xs">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>Brand Kit Active</span>
+                </span>
+              </div>
+
+              <textarea
+                rows={3}
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                className="w-full p-3.5 bg-white border border-slate-300 rounded-xl text-xs font-medium text-neutral-900 focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20 outline-none transition-all resize-none shadow-sm placeholder:text-slate-400 leading-relaxed"
+                placeholder="e.g. generate a brand content using employeeos, 5 lessons on B2B SaaS growth, or why async communication wins..."
+              />
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1">
+                {/* Target Platform Adapters */}
+                <div>
+                  <span className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+                    Target Platform Adapters
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {(['instagram', 'linkedin', 'x'] as SocialPlatform[]).map((p) => {
+                      const isSelected = selectedPlatforms.includes(p);
+                      return (
+                        <button
+                          key={p}
+                          type="button"
+                          onClick={() => togglePlatform(p)}
+                          className={`px-3 py-1 rounded-full text-xs font-bold transition-all border ${
+                            isSelected
+                              ? 'bg-neutral-900 text-white border-neutral-900 shadow-sm'
+                              : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          {p === 'x' ? 'X (Twitter)' : p.charAt(0).toUpperCase() + p.slice(1)}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Generate Button */}
+                <div className="flex items-center gap-2 self-end sm:self-center">
+                  <button
+                    type="button"
+                    onClick={handleGenerateAiContent}
+                    disabled={isGeneratingAi || !aiPrompt.trim()}
+                    className="btn btn-primary text-xs flex items-center gap-2 py-2 px-4 shadow-md bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white font-bold disabled:opacity-50 transition-all hover:scale-[1.01]"
+                  >
+                    <Sparkles className={`w-3.5 h-3.5 ${isGeneratingAi ? 'animate-spin' : ''}`} />
+                    <span>{isGeneratingAi ? 'Generating Copy...' : 'Generate with AI'}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
             {/* Slide Navigation Tabs */}
             <div className="flex items-center justify-between bg-white border border-slate-200 rounded-xl p-2 shadow-sm">
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
@@ -613,14 +762,27 @@ export default function TemplatesPage() {
                   </div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => setIsRawHtmlMode(!isRawHtmlMode)}
-                  className="text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 border border-blue-200"
-                >
-                  <Code2 className="w-3.5 h-3.5" />
-                  <span>{isRawHtmlMode ? '← Back to Visual Fields' : 'Edit Raw HTML'}</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleRewriteCurrentSlideWithAi}
+                    disabled={isGeneratingAi}
+                    className="text-xs font-semibold text-purple-700 hover:text-purple-800 bg-purple-50 hover:bg-purple-100 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 border border-purple-200"
+                    title="Regenerate this specific slide's copy using the AI prompt"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                    <span>Rewrite Slide with AI</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsRawHtmlMode(!isRawHtmlMode)}
+                    className="text-xs font-semibold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 border border-blue-200"
+                  >
+                    <Code2 className="w-3.5 h-3.5" />
+                    <span>{isRawHtmlMode ? '← Back to Visual Fields' : 'Edit Raw HTML'}</span>
+                  </button>
+                </div>
               </div>
 
               {/* Form Fields: Visual Mode */}

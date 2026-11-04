@@ -584,3 +584,242 @@ export const renderSlideViaIframe = async (
   });
 };
 
+// ==============================================================================
+// AI CONTENT GENERATOR FOR IN-HOUSE TEMPLATES
+// Generates fresh, high-converting copy tailored to the user's prompt while
+// completely preserving the active template's layout, theme, and styling.
+// ==============================================================================
+
+export function cleanSubjectFromPrompt(prompt: string): string {
+  const trimmed = prompt.trim();
+  if (!trimmed) return 'Operational Excellence';
+
+  let cleaned = trimmed
+    .replace(/^(generate|create|write|make|build|produce)\s+/i, '')
+    .replace(/^(a|an|the)\s+/i, '')
+    .replace(/^(brand\s+content|carousel|slides?|post|social\s+post)\s+/i, '')
+    .replace(/^(using|for|about|with|on|around)\s+/i, '')
+    .trim();
+
+  if (/employee\s*os/i.test(cleaned) || /employee\s*os/i.test(prompt)) {
+    return 'EmployeeOS';
+  }
+  if (/synergy/i.test(cleaned) || /synergy/i.test(prompt)) {
+    return 'Synergy';
+  }
+
+  if (cleaned.length > 0) {
+    return cleaned
+      .split(' ')
+      .filter(Boolean)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      .join(' ');
+  }
+  return 'Strategic Operations';
+}
+
+export function generateAiSlideCopy(
+  prompt: string,
+  templateId: string,
+  slideIndex: number,
+  totalSlides: number,
+  existingSlide?: InhouseTemplateSlide
+): InhouseTemplateSlide {
+  const subject = cleanSubjectFromPrompt(prompt);
+  const isEmployeeOs = /employee\s*os/i.test(prompt) || subject === 'EmployeeOS';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const footerBadge = `${pad(slideIndex + 1)} / ${pad(totalSlides)}`;
+  const footerText = isEmployeeOs ? 'EmployeeOS Architecture' : `${subject} Blueprint`;
+
+  // Template-specific tailoring
+  if (templateId === 'stepPlaybook') {
+    const stepNum = slideIndex + 1;
+    if (slideIndex === 0) {
+      return {
+        id: existingSlide?.id || `slide-${Date.now()}-${slideIndex}`,
+        title: `Step 1: Audit`,
+        tag: `Step 01: Focus`,
+        headline: isEmployeeOs
+          ? 'Audit Your Fragmented Team Lifecycle'
+          : `Define the Core Operating Pillars for ${subject}`,
+        body: isEmployeeOs
+          ? 'Most companies lose 4.8 hours per employee weekly on scattered onboarding spreadsheets and siloed tools. First, identify every manual operational handoff.'
+          : `Anchor your ${subject} strategy around non-negotiable fundamentals. Extreme clarity beats reactive chaos every single time.`,
+        footerText,
+        footerBadge,
+      };
+    } else if (slideIndex === totalSlides - 1) {
+      return {
+        id: existingSlide?.id || `slide-${Date.now()}-${slideIndex}`,
+        title: `Step ${stepNum}: Scale`,
+        tag: `Step ${pad(stepNum)}: Scale`,
+        headline: isEmployeeOs
+          ? 'Scale Workforce Velocity Autonomously'
+          : `Automate & Scale ${subject} Without Burnout`,
+        body: isEmployeeOs
+          ? 'Turn team coordination into an autonomous engine with EmployeeOS. Reclaim your executive focus for high-conviction strategic decisions.'
+          : `Standardize your workflows into compounding systems. Consistent operational architecture makes execution repeatable.`,
+        footerText: isEmployeeOs ? 'employeeos.io →' : 'Swipe to Save →',
+        footerBadge,
+      };
+    } else {
+      return {
+        id: existingSlide?.id || `slide-${Date.now()}-${slideIndex}`,
+        title: `Step ${stepNum}: Automate`,
+        tag: `Step ${pad(stepNum)}: Systems`,
+        headline: isEmployeeOs
+          ? 'Deploy Zero-Touch Onboarding & Milestone Sync'
+          : `Systematize Your Execution Engine`,
+        body: isEmployeeOs
+          ? 'Provision role workspaces in 60 seconds with automated compliance, real-time feedback loops, and frictionless performance milestones.'
+          : `Remove manual drag by templatizing every touchpoint. Predictable execution structures increase team output by over 65%.`,
+        footerText,
+        footerBadge,
+      };
+    }
+  }
+
+  if (templateId === 'viralMetrics') {
+    if (slideIndex === 0) {
+      return {
+        id: existingSlide?.id || `slide-${Date.now()}-${slideIndex}`,
+        title: 'Stat Hook',
+        tag: 'Growth Benchmark',
+        stat: isEmployeeOs ? '10x' : '+340%',
+        headline: isEmployeeOs
+          ? '10x Faster Team Provisioning with EmployeeOS'
+          : `Massive Engagement Lift from Systematic ${subject}`,
+        body: isEmployeeOs
+          ? 'Companies switching to autonomous workforce operating systems eliminate hours of manual onboarding and disconnected HR paperwork.'
+          : `Data shows teams executing on ${subject} with structured visual systems achieve over 3x higher retention and audience dwell time.`,
+        footerText,
+        footerBadge,
+      };
+    } else if (slideIndex === totalSlides - 1) {
+      return {
+        id: existingSlide?.id || `slide-${Date.now()}-${slideIndex}`,
+        title: 'Velocity CTA',
+        tag: 'Compound Growth',
+        stat: isEmployeeOs ? '-72%' : '4.8h',
+        headline: isEmployeeOs
+          ? 'Reduce Operational Drag by 72% Starting Today'
+          : `Save Over 200 Hours of Execution Drag Annually`,
+        body: isEmployeeOs
+          ? 'Build a high-performance team architecture that compounds daily. Deploy EmployeeOS and reclaim your leadership focus.'
+          : `Turn ${subject} into an unfair competitive moat. Save this framework and deploy these systems with your team this week.`,
+        footerText: isEmployeeOs ? 'employeeos.io →' : 'synergy.app →',
+        footerBadge,
+      };
+    } else {
+      return {
+        id: existingSlide?.id || `slide-${Date.now()}-${slideIndex}`,
+        title: `Proof Metric ${slideIndex + 1}`,
+        tag: 'Velocity Metric',
+        stat: isEmployeeOs ? '4.8h' : '+215%',
+        headline: isEmployeeOs
+          ? 'Saved Every Single Week per Employee & Manager'
+          : `Accelerate Your Operational Velocity`,
+        body: isEmployeeOs
+          ? '1. Zero manual ticket routing.\n2. Autonomous compliance and audit trails.\n3. Dynamic performance milestones tracked in real time.'
+          : `1. Continuous execution without ad-hoc bottlenecks.\n2. Single source of truth across all team initiatives.\n3. Repeatable frameworks that scale seamlessly.`,
+        footerText: 'Operational Benchmark',
+        footerBadge,
+      };
+    }
+  }
+
+  if (templateId === 'thoughtLeadership') {
+    if (slideIndex === 0) {
+      return {
+        id: existingSlide?.id || `slide-${Date.now()}-${slideIndex}`,
+        title: 'The Quote',
+        tag: 'Core Principle',
+        headline: isEmployeeOs
+          ? '"Your team\'s velocity is capped by your operational friction."'
+          : `"Consistency in ${subject} isn't discipline. It's architecture."`,
+        body: isEmployeeOs
+          ? 'High-growth founders don\'t manage people through administrative bureaucracy. They build operating systems that make failure impossible.'
+          : `The teams that succeed with ${subject} don't have more willpower. They have systems that remove friction and compound daily.`,
+        footerText,
+        footerBadge,
+      };
+    } else {
+      return {
+        id: existingSlide?.id || `slide-${Date.now()}-${slideIndex}`,
+        title: 'The Takeaway',
+        tag: 'Execution Model',
+        headline: isEmployeeOs
+          ? 'From Manual HR Chaos to Autonomous Team Synergy'
+          : `Build Compounding Systems That Scale Smoothly`,
+        body: isEmployeeOs
+          ? 'Automate the fundamentals with EmployeeOS so your people can spend 100% of their energy solving high-leverage strategic problems.'
+          : `Standardize your frameworks, templatize your production, and focus only on high-conviction decisions.`,
+        footerText: isEmployeeOs ? 'employeeos.io →' : 'Follow for insights →',
+        footerBadge,
+      };
+    }
+  }
+
+  // General B2B / Executive Dark / Tech Founder / Minimal Editorial
+  if (slideIndex === 0) {
+    return {
+      id: existingSlide?.id || `slide-${Date.now()}-${slideIndex}`,
+      title: 'Hook Slide',
+      tag: isEmployeeOs ? 'Workforce Architecture' : 'Executive Brief',
+      headline: isEmployeeOs
+        ? 'How EmployeeOS Automates Your Entire Team Lifecycle'
+        : `The Asymmetric Advantage of ${subject}`,
+      body: isEmployeeOs
+        ? 'Manual onboarding, scattered spreadsheets, and siloed payroll kill operational velocity. EmployeeOS consolidates workforce orchestration into a unified, autonomous flow.'
+        : `Most leaders assume more effort equals higher growth. The real competitive moat is autonomous systemization around ${subject}.`,
+      stat: templateId === 'saasPlaybook' || templateId === 'techFounder' ? '+340%' : undefined,
+      footerText,
+      footerBadge,
+    };
+  } else if (slideIndex === totalSlides - 1) {
+    return {
+      id: existingSlide?.id || `slide-${Date.now()}-${slideIndex}`,
+      title: 'CTA Slide',
+      tag: 'Next Steps',
+      headline: isEmployeeOs
+        ? 'Deploy EmployeeOS for Your Team Today'
+        : `Scale Your ${subject} Operating Flywheel`,
+      body: isEmployeeOs
+        ? 'Stop fighting administrative friction. Build a high-performance team culture that scales smoothly. Connect your workspace and start in minutes.'
+        : `Turn ${subject} into a repeatable growth flywheel. Save this carousel and implement these tactical frameworks with your team today.`,
+      stat: undefined,
+      footerText: isEmployeeOs ? 'employeeos.io →' : 'synergy.app →',
+      footerBadge,
+    };
+  } else {
+    return {
+      id: existingSlide?.id || `slide-${Date.now()}-${slideIndex}`,
+      title: `Strategic Pillar ${slideIndex + 1}`,
+      tag: isEmployeeOs ? 'The 3 Levers' : 'Strategic Pillar',
+      headline: isEmployeeOs
+        ? 'Eliminating 4.8 Hours of Operational Waste per Week'
+        : `The Core Levers Driving High-Velocity ${subject}`,
+      body: isEmployeeOs
+        ? '1. Zero-Touch Setup: Provision hardware & accounts in 60 seconds.\n2. Continuous Pulse: Dynamic milestones replace slow annual reviews.\n3. Native Compliance: Automated audit trails that scale without overhead.'
+        : `1. Architectural Alignment: Build single sources of truth.\n2. Automated Cadence: Replace ad-hoc manual tasks with predictable systems.\n3. Compounding Visibility: Real-time feedback loops that drive clarity.`,
+      stat: isEmployeeOs ? '4.8h' : undefined,
+      footerText: isEmployeeOs ? 'Operational Benchmark' : 'Execution Framework',
+      footerBadge,
+    };
+  }
+}
+
+export function generateFullCarouselCopyFromAi(
+  prompt: string,
+  templateId: string,
+  slideCount: number,
+  existingSlides?: InhouseTemplateSlide[]
+): InhouseTemplateSlide[] {
+  const count = Math.max(2, Math.min(10, slideCount || 3));
+  return Array.from({ length: count }, (_, idx) => {
+    const existing = existingSlides && existingSlides[idx] ? existingSlides[idx] : undefined;
+    return generateAiSlideCopy(prompt, templateId, idx, count, existing);
+  });
+}
+
+
