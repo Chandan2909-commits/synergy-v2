@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Send,
@@ -30,6 +30,47 @@ export default function DashboardPage() {
   const { getCurrentBusiness, setCommandPaletteOpen } = useWorkspaceStore();
   const business = getCurrentBusiness();
 
+  const [upcomingPosts, setUpcomingPosts] = useState<
+    Array<{
+      id: string;
+      title: string;
+      platform: string;
+      format: string;
+      scheduledTime: string;
+      status: string;
+      author: string;
+    }>
+  >([]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const key = `synergy_scheduled_posts_${business?.id || 'biz-crosstech'}`;
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            const mapped = parsed.map((item: any) => ({
+              id: item.id || `post-${Math.random()}`,
+              title: item.title || item.caption?.slice(0, 36) || 'Carousel Campaign',
+              platform: (item.platforms?.[0] || 'Instagram').toUpperCase(),
+              format: item.slideCount ? `${item.slideCount} Slides` : 'Carousel',
+              scheduledTime: new Date(item.scheduledFor || Date.now()).toLocaleDateString([], {
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+              }),
+              status: item.status || 'scheduled',
+              author: 'Code Studio',
+            }));
+            setUpcomingPosts(mapped);
+          }
+        } catch {}
+      }
+    }
+  }, [business?.id]);
+
   const kpis = [
     {
       title: 'Published Posts',
@@ -40,8 +81,8 @@ export default function DashboardPage() {
     },
     {
       title: 'Scheduled in Queue',
-      value: '0',
-      subtitle: 'No upcoming posts',
+      value: String(upcomingPosts.length),
+      subtitle: upcomingPosts.length > 0 ? `${upcomingPosts.length} post${upcomingPosts.length > 1 ? 's' : ''} in publishing queue` : 'No upcoming posts',
       icon: Calendar,
       color: 'text-emerald-600',
     },
@@ -60,16 +101,6 @@ export default function DashboardPage() {
       color: 'text-amber-600',
     },
   ];
-
-  const upcomingPosts: Array<{
-    id: string;
-    title: string;
-    platform: string;
-    format: string;
-    scheduledTime: string;
-    status: string;
-    author: string;
-  }> = [];
 
   const aiActivities: Array<{
     persona: string;

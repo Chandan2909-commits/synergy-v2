@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Calendar as CalendarIcon,
@@ -22,15 +22,42 @@ export default function CalendarPage() {
   const business = getCurrentBusiness();
 
   const [currentView, setCurrentView] = useState<'month' | 'week'>('month');
+  const [scheduledEvents, setScheduledEvents] = useState<
+    Array<{
+      id: string;
+      day: number;
+      platform: string;
+      title: string;
+      time: string;
+      status: string;
+    }>
+  >([]);
 
-  const scheduledEvents: Array<{
-    id: string;
-    day: number;
-    platform: string;
-    title: string;
-    time: string;
-    status: string;
-  }> = [];
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const key = `synergy_scheduled_posts_${business?.id || 'biz-crosstech'}`;
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) {
+            const mapped = parsed.map((item: any) => {
+              const date = new Date(item.scheduledFor || Date.now());
+              return {
+                id: item.id || `evt-${Math.random()}`,
+                day: date.getDate() || 5,
+                platform: item.platforms?.[0] || 'instagram',
+                title: item.title || item.caption?.slice(0, 30) || 'Scheduled Post',
+                time: date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                status: item.status || 'scheduled',
+              };
+            });
+            setScheduledEvents(mapped);
+          }
+        } catch {}
+      }
+    }
+  }, [business?.id]);
 
   const daysInMonth = Array.from({ length: 30 }, (_, i) => i + 1);
 
