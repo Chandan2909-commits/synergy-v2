@@ -174,8 +174,22 @@ chrome.runtime.onMessage.addListener(async (request) => {
     // ========================================================================
     async function clickNextButton() {
       for (let attempt = 0; attempt < 15; attempt++) {
-        const buttons = Array.from(document.querySelectorAll('div[role="button"], button'));
-        const nextBtn = buttons.find((el) => el.textContent?.trim().toLowerCase() === 'next');
+        const dialogs = Array.from(document.querySelectorAll('div[role="dialog"]'));
+        const createDialog =
+          dialogs.find((dlg) => dlg.textContent?.includes('Create new post')) || document;
+        const dialogRect = createDialog.getBoundingClientRect ? createDialog.getBoundingClientRect() : { top: 0 };
+        const buttons = Array.from(createDialog.querySelectorAll('div[role="button"], button'));
+
+        const nextBtn =
+          buttons.find((el) => {
+            const text = el.textContent?.trim().toLowerCase();
+            if (text !== 'next') return false;
+            if (el.querySelector('svg')) return false;
+            const rect = el.getBoundingClientRect();
+            const relTop = rect.top - dialogRect.top;
+            return relTop >= 0 && relTop < 150;
+          }) || buttons.find((el) => el.textContent?.trim().toLowerCase() === 'next');
+
         if (nextBtn) {
           nextBtn.click();
           return true;
@@ -218,14 +232,50 @@ chrome.runtime.onMessage.addListener(async (request) => {
     }
 
     // ========================================================================
-    // Step 7: Click "Share"
+    // Step 7: Click "Share" (Strictly Target Create Dialog Publish Button)
     // ========================================================================
     sendProgress('[5/5] 🚀 Finalizing publication: clicking Share...');
 
+    // Close any accidental DM Share popup if open
+    const dmCloseBtn = document.querySelector('svg[aria-label="Close"]')?.closest('button, div[role="button"]');
+    if (dmCloseBtn && document.querySelector('div[role="dialog"] input[placeholder*="Search" i]')) {
+      dmCloseBtn.click();
+      await sleep(1000);
+    }
+
     let shareBtn = null;
-    for (let attempt = 0; attempt < 15; attempt++) {
-      const buttons = Array.from(document.querySelectorAll('div[role="button"], button'));
-      shareBtn = buttons.find((el) => el.textContent?.trim().toLowerCase() === 'share');
+    for (let attempt = 0; attempt < 20; attempt++) {
+      // Find the Create new post dialog
+      const dialogs = Array.from(document.querySelectorAll('div[role="dialog"]'));
+      const createDialog =
+        dialogs.find(
+          (dlg) =>
+            dlg.textContent?.includes('Create new post') ||
+            Boolean(dlg.querySelector('div[aria-label*="caption" i], div[contenteditable="true"]'))
+        ) || document;
+
+      const dialogRect = createDialog.getBoundingClientRect ? createDialog.getBoundingClientRect() : { top: 0 };
+      const candidates = Array.from(createDialog.querySelectorAll('div[role="button"], button'));
+
+      // Find the blue Share button in the Create dialog header
+      shareBtn = candidates.find((el) => {
+        const text = el.textContent?.trim().toLowerCase();
+        if (text !== 'share') return false;
+        // EXCLUDE buttons containing SVG icons (the feed/DM share button has a paper airplane icon)
+        if (el.querySelector('svg')) return false;
+        // Must be in the top header row of the Create dialog (top 150px)
+        const rect = el.getBoundingClientRect();
+        const relTop = rect.top - dialogRect.top;
+        return relTop >= 0 && relTop < 150;
+      });
+
+      // Fallback: any plain text button "Share" without SVG
+      if (!shareBtn) {
+        shareBtn = candidates.find(
+          (el) => el.textContent?.trim().toLowerCase() === 'share' && !el.querySelector('svg')
+        );
+      }
+
       if (shareBtn) break;
       await sleep(500);
     }
@@ -233,7 +283,7 @@ chrome.runtime.onMessage.addListener(async (request) => {
     if (shareBtn) {
       shareBtn.click();
     } else {
-      throw new Error('Could not find "Share" button to finalize upload.');
+      throw new Error('Could not find the "Share" button in the Create Post header.');
     }
 
     // ========================================================================

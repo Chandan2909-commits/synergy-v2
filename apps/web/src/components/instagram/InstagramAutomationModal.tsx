@@ -53,8 +53,8 @@ export function InstagramAutomationModal({
     lastPostAt: string | null;
   } | null>(null);
 
-  // Flow & Mode Selection
-  const [activeMode, setActiveMode] = useState<'extension' | 'bridge'>('extension');
+  // Flow & Mode Selection (Default to Playwright Flawless Flow)
+  const [activeMode, setActiveMode] = useState<'extension' | 'bridge'>('bridge');
 
   // Chrome Extension State
   const [extensionDetected, setExtensionDetected] = useState<boolean>(false);
@@ -441,6 +441,22 @@ export function InstagramAutomationModal({
           <div className="flex items-center gap-2">
             <button
               type="button"
+              onClick={() => setActiveMode('bridge')}
+              className={`px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5 transition-all ${
+                activeMode === 'bridge'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              <Terminal className="w-3.5 h-3.5 text-emerald-400" />
+              <span>⚡ Playwright Engine (Flawless Flow)</span>
+              {bridgeConnected && (
+                <span className="w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-slate-900"></span>
+              )}
+            </button>
+
+            <button
+              type="button"
               onClick={() => setActiveMode('extension')}
               className={`px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5 transition-all ${
                 activeMode === 'extension'
@@ -449,31 +465,15 @@ export function InstagramAutomationModal({
               }`}
             >
               <Puzzle className="w-3.5 h-3.5" />
-              <span>Chrome Extension (Zero Code)</span>
+              <span>Chrome Extension (Popup)</span>
               {isExtensionReady && (
                 <span className="w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-purple-600"></span>
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setActiveMode('bridge')}
-              className={`px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5 transition-all ${
-                activeMode === 'bridge'
-                  ? 'bg-slate-900 text-white shadow-sm'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-              }`}
-            >
-              <Terminal className="w-3.5 h-3.5" />
-              <span>Local Bridge (Terminal)</span>
-              {bridgeConnected && (
-                <span className="w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-slate-900"></span>
               )}
             </button>
           </div>
 
           <span className="text-[11px] font-semibold text-slate-400">
-            {activeMode === 'extension' ? 'Recommended for Customers' : 'For Developers'}
+            {activeMode === 'bridge' ? 'Direct Desktop Chrome' : 'In-Browser Automation'}
           </span>
         </div>
 
