@@ -148,6 +148,53 @@ export default function CalendarPage() {
     return () => clearInterval(interval);
   }, [syncScheduledPosts]);
 
+  // Listen for Extension Communication
+  useEffect(() => {
+    const handleExtensionMessage = (event: MessageEvent) => {
+      if (!event.data || event.data.source !== 'SYNERGY_EXTENSION') return;
+
+      const { type, message, success, error } = event.data;
+
+      if (type === 'PROGRESS_UPDATE' && message) {
+        setDispatchStatus(message);
+      }
+
+      if (type === 'POST_RESULT') {
+        setIsDispatchingNow(false);
+        if (success) {
+          setDispatchStatus('🎉 Successfully published to Instagram via Extension!');
+          setTimeout(() => {
+            syncScheduledPosts();
+          }, 1500);
+        } else {
+          setDispatchStatus(`❌ Extension error: ${error || 'Failed to complete Instagram post'}`);
+        }
+      }
+    };
+
+    window.addEventListener('message', handleExtensionMessage);
+    return () => window.removeEventListener('message', handleExtensionMessage);
+  }, [syncScheduledPosts]);
+
+  // AUTOMATED DUE-POST QUEUE WATCHER (Triggers posts automatically at their exact scheduled time)
+  useEffect(() => {
+    const queueInterval = setInterval(() => {
+      if (isDispatchingNow) return; // Strict one-by-one execution
+
+      const now = Date.now();
+      const duePost = scheduledPosts.find(
+        (p) => (!p.status || p.status === 'scheduled') && new Date(p.scheduledFor).getTime() <= now
+      );
+
+      if (duePost) {
+        console.log(`[Content Calendar] ⏰ Exact scheduled time arrived for "${duePost.title}". Auto-triggering...`);
+        handleDispatchNow(duePost);
+      }
+    }, 3000);
+
+    return () => clearInterval(queueInterval);
+  }, [scheduledPosts, isDispatchingNow]);
+
   // Month Navigation Handlers
   const handlePrevMonth = () => {
     setViewDate((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
@@ -227,7 +274,30 @@ export default function CalendarPage() {
         setSelectedPost({ ...selectedPost, status: 'publishing' });
       }
 
-      // 2. Dispatch via bridge or API
+      // 2. If Chrome Extension is available, dispatch via Extension
+      const hasExtension =
+        typeof document !== 'undefined' &&
+        Boolean(document.documentElement.getAttribute('data-synergy-extension'));
+
+      if (hasExtension) {
+        setDispatchStatus('🚀 Triggering Synergy Extension automated posting in popup window...');
+        window.postMessage(
+          {
+            source: 'SYNERGY_WEB_STUDIO',
+            type: 'PUBLISH_INSTAGRAM',
+            payload: {
+              id: post.id,
+              slides: post.slides || [],
+              caption: post.caption,
+              stealthMode: true,
+            },
+          },
+          '*'
+        );
+        return; // The extension message listener will handle completion
+      }
+
+      // 3. Fallback: Dispatch via bridge or API
       let success = false;
       let errorMsg = '';
 

@@ -7,7 +7,7 @@
  */
 
 (function () {
-  const EXTENSION_VERSION = '1.0.0';
+  const EXTENSION_VERSION = '1.1.0';
 
   // Mark document element for instant synchronous detection by Synergy Web UI
   document.documentElement.setAttribute('data-synergy-extension', EXTENSION_VERSION);
@@ -74,6 +74,11 @@
 
     if (type === 'SCHEDULE_POST') {
       chrome.runtime.sendMessage({ action: 'SCHEDULE_POST', payload });
+      return;
+    }
+
+    if (type === 'TRIGGER_DUE_POST') {
+      chrome.runtime.sendMessage({ action: 'START_INSTAGRAM_POST', payload });
       return;
     }
 

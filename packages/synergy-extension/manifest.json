@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Synergy Social Assistant",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Autonomous Instagram carousel publishing companion for Synergy OS.",
   "permissions": [
     "activeTab",
@@ -9,6 +9,7 @@
     "tabs",
     "cookies",
     "storage",
+    "unlimitedStorage",
     "alarms"
   ],
   "host_permissions": [

@@ -598,25 +598,23 @@ export function InstagramAutomationModal({
         localStorage.setItem(key, JSON.stringify([newPost, ...existing.filter((p: any) => p.id !== postId)]));
       }
 
-      // 4. If Extension is available, register precision Chrome Alarm
-      if (extensionDetected || activeMode === 'extension') {
-        window.postMessage(
-          {
-            source: 'SYNERGY_WEB_STUDIO',
-            type: 'SCHEDULE_POST',
-            payload: {
-              id: postId,
-              title: postTitle,
-              slides: slidesToPublish,
-              caption,
-              scheduledFor: scheduledIso,
-              stealthMode: isStealth,
-            },
+      // 4. Always register with Extension
+      window.postMessage(
+        {
+          source: 'SYNERGY_WEB_STUDIO',
+          type: 'SCHEDULE_POST',
+          payload: {
+            id: postId,
+            title: postTitle,
+            slides: slidesToPublish,
+            caption,
+            scheduledFor: scheduledIso,
+            stealthMode: isStealth,
           },
-          '*'
-        );
-        setLogs((prev) => [...prev, '⏰ Registered precision alarm in Synergy Extension background worker.']);
-      }
+        },
+        '*'
+      );
+      setLogs((prev) => [...prev, '⏰ Registered precision queue alarm in Synergy Extension background worker.']);
 
       setLogs((prev) => [
         ...prev,
