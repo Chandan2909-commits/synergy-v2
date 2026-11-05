@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * SYNERGY SOCIAL ASSISTANT - BACKGROUND SERVICE WORKER (v1.1.2)
+ * SYNERGY SOCIAL ASSISTANT - BACKGROUND SERVICE WORKER (v1.1.3)
  * Manages floating popup windows, cookies, alarms, and exact-moment execution.
  * ============================================================================
  */
@@ -112,7 +112,6 @@ function executeInstagramPost(payload, onDone) {
       width: 1100,
       height: 850,
       focused: true,
-      populate: true,
     },
     (newWindow) => {
       if (!newWindow) {
@@ -238,7 +237,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       sendResponse({
         success: true,
         installed: true,
-        version: '1.1.2',
+        version: '1.1.3',
         hasInstagramSession,
         origin: 'Chrome Extension Service Worker',
       });
@@ -255,7 +254,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         width: 1100,
         height: 850,
         focused: true,
-        populate: true,
       },
       (newWindow) => {
         activePopupWindowId = newWindow.id;
