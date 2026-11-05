@@ -19,7 +19,9 @@
     "lint": "npm run lint --workspaces --if-present",
     "clean": "npm run clean --workspaces --if-present",
     "ig:login": "node scripts/instagram-login.mjs",
-    "ig:post": "node scripts/instagram-post.mjs"
+    "ig:post": "node scripts/instagram-post.mjs",
+    "ig:bridge": "node scripts/instagram-bridge.mjs",
+    "bridge": "node scripts/instagram-bridge.mjs"
   },
   "keywords": [
     "marketing-automation",

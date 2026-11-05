@@ -16,6 +16,12 @@ import {
   Sparkles,
   Smartphone,
   Flame,
+  Copy,
+  Check,
+  Radio,
+  Wifi,
+  WifiOff,
+  Terminal,
 } from 'lucide-react';
 
 interface InstagramAutomationModalProps {
@@ -43,6 +49,8 @@ export function InstagramAutomationModal({
     lastPostAt: string | null;
   } | null>(null);
 
+  const [bridgeConnected, setBridgeConnected] = useState<boolean | null>(null);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [isLoadingStatus, setIsLoadingStatus] = useState(false);
   const [isLaunchingLogin, setIsLaunchingLogin] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
@@ -57,27 +65,68 @@ export function InstagramAutomationModal({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Refresh status from API
+  // Copy helper
+  const copyCommand = (cmd: string, key: string) => {
+    navigator.clipboard.writeText(cmd);
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2500);
+  };
+
+  // Refresh status from Local Companion Bridge or fallback to Next.js API
   const checkStatus = async () => {
     setIsLoadingStatus(true);
+    let bridgeOk = false;
+
+    // 1. First probe local companion bridge at http://127.0.0.1:4545/status
     try {
-      const res = await fetch('/api/instagram');
-      const data = await res.json();
-      if (data.success) {
-        setStatus({
-          isCloud: data.isCloud,
-          hasAuthSession: data.hasAuthSession,
-          postsCountToday: data.postsCountToday,
-          maxDaily: data.maxDaily,
-          canPost: data.canPost,
-          lastPostAt: data.lastPostAt,
-        });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
+      const bridgeRes = await fetch('http://127.0.0.1:4545/status', {
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (bridgeRes.ok) {
+        const bridgeData = await bridgeRes.json();
+        if (bridgeData.online) {
+          bridgeOk = true;
+          setBridgeConnected(true);
+          setStatus({
+            isCloud: false,
+            hasAuthSession: bridgeData.hasAuthSession,
+            postsCountToday: bridgeData.postsCountToday,
+            maxDaily: bridgeData.maxDaily,
+            canPost: bridgeData.canPost,
+            lastPostAt: bridgeData.lastPostAt,
+          });
+        }
       }
-    } catch (err) {
-      console.error('Failed to fetch Instagram status:', err);
-    } finally {
-      setIsLoadingStatus(false);
+    } catch {
+      bridgeOk = false;
     }
+
+    if (!bridgeOk) {
+      setBridgeConnected(false);
+      // 2. Fall back to internal API check to identify if running on cloud/Vercel or local Next dev
+      try {
+        const res = await fetch('/api/instagram');
+        const data = await res.json();
+        if (data.success) {
+          setStatus({
+            isCloud: data.isCloud,
+            hasAuthSession: data.hasAuthSession,
+            postsCountToday: data.postsCountToday,
+            maxDaily: data.maxDaily,
+            canPost: data.canPost,
+            lastPostAt: data.lastPostAt,
+          });
+        }
+      } catch (err) {
+        console.error('Failed to fetch Instagram status:', err);
+      }
+    }
+
+    setIsLoadingStatus(false);
   };
 
   useEffect(() => {
@@ -93,28 +142,49 @@ export function InstagramAutomationModal({
   const handleLaunchLogin = async () => {
     setIsLaunchingLogin(true);
     setErrorMsg(null);
+    setSuccessMsg(null);
+
+    const loginEndpoint = bridgeConnected
+      ? 'http://127.0.0.1:4545/login'
+      : '/api/instagram/login';
+
     try {
-      const res = await fetch('/api/instagram/login', { method: 'POST' });
+      const res = await fetch(loginEndpoint, { method: 'POST' });
       const data = await res.json();
+
       if (data.success) {
         setLogs((prev) => [
           ...prev,
-          '🌐 Chrome window opened on your desktop. Please log into Instagram manually, complete 2FA, and return here.',
+          '🌐 Chrome window opened on your desktop! Please log into Instagram manually, complete 2FA, and return here.',
         ]);
+
         // Poll for auth.json creation
         let attempts = 0;
         const interval = setInterval(async () => {
           attempts++;
-          const check = await fetch('/api/instagram');
-          const json = await check.json();
-          if (json.hasAuthSession) {
-            clearInterval(interval);
-            setStatus(json);
-            setIsLaunchingLogin(false);
-            setLogs((prev) => [...prev, '✅ Instagram session successfully saved to auth.json! Ready to publish.']);
-          } else if (attempts >= 40) {
-            clearInterval(interval);
-            setIsLaunchingLogin(false);
+          const checkUrl = bridgeConnected
+            ? 'http://127.0.0.1:4545/status'
+            : '/api/instagram';
+          try {
+            const check = await fetch(checkUrl);
+            const json = await check.json();
+            if (json.hasAuthSession) {
+              clearInterval(interval);
+              setStatus((prev) => (prev ? { ...prev, hasAuthSession: true } : json));
+              setIsLaunchingLogin(false);
+              setLogs((prev) => [
+                ...prev,
+                '✅ Instagram session captured & saved to storage/instagram/auth.json! Ready to publish.',
+              ]);
+            } else if (attempts >= 40) {
+              clearInterval(interval);
+              setIsLaunchingLogin(false);
+            }
+          } catch {
+            if (attempts >= 40) {
+              clearInterval(interval);
+              setIsLaunchingLogin(false);
+            }
           }
         }, 3000);
       } else {
@@ -122,7 +192,10 @@ export function InstagramAutomationModal({
         setIsLaunchingLogin(false);
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Error communicating with server');
+      setErrorMsg(
+        err.message ||
+          'Failed to communicate with login endpoint. Please make sure the local bridge is running.'
+      );
       setIsLaunchingLogin(false);
     }
   };
@@ -156,11 +229,17 @@ export function InstagramAutomationModal({
     setIsPublishing(true);
     setLogs((prev) => [
       ...prev,
-      `🚀 Initializing Playwright automation (${slidesToPublish.length} slide carousel)...`,
+      `🚀 Initializing Playwright automation (${slidesToPublish.length} slide carousel via ${
+        bridgeConnected ? 'Local Companion Bridge' : 'Local Engine'
+      })...`,
     ]);
 
+    const publishEndpoint = bridgeConnected
+      ? 'http://127.0.0.1:4545/publish'
+      : '/api/instagram';
+
     try {
-      const res = await fetch('/api/instagram', {
+      const res = await fetch(publishEndpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -182,7 +261,10 @@ export function InstagramAutomationModal({
         if (data.logs) setLogs(data.logs);
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Network error while executing publish');
+      setErrorMsg(
+        err.message ||
+          'Failed to reach execution runner. If using the hosted website, ensure "npm run ig:bridge" is active.'
+      );
     } finally {
       setIsPublishing(false);
     }
@@ -223,31 +305,90 @@ export function InstagramAutomationModal({
           </button>
         </div>
 
-        {/* Cloud Environment Notice */}
-        {status?.isCloud && (
-          <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 space-y-2 text-xs">
-            <div className="flex items-start gap-2">
-              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-              <div>
-                <span className="font-bold text-amber-900 block">
-                  Hosted Cloud Environment Detected (Vercel)
-                </span>
-                <p className="text-amber-800 text-[11px] leading-relaxed mt-0.5">
-                  Playwright desktop browser automation operates directly on your local workstation so Chrome can open securely with your display, saved session, and 2FA.
-                </p>
+        {/* Local Companion Bridge State */}
+        {bridgeConnected === true ? (
+          <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              </span>
+              <div className="flex items-center gap-1.5 font-bold text-emerald-900">
+                <Wifi className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Local Companion Bridge Connected (127.0.0.1:4545)</span>
               </div>
             </div>
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              <span className="text-[11px] font-semibold text-amber-900">Run Locally:</span>
-              <code className="px-2 py-0.5 bg-amber-100/80 text-amber-900 font-mono text-[11px] rounded border border-amber-300">
-                npm run ig:login
-              </code>
-              <code className="px-2 py-0.5 bg-amber-100/80 text-amber-900 font-mono text-[11px] rounded border border-amber-300">
-                npm run ig:post
-              </code>
-              <span className="text-[10px] text-amber-700 ml-auto font-medium">
-                Or launch UI with <span className="font-mono font-semibold">npm run dev</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-full border border-emerald-300">
+                🛡️ Residential IP Active
               </span>
+              <button
+                type="button"
+                onClick={checkStatus}
+                disabled={isLoadingStatus}
+                className="text-emerald-700 hover:text-emerald-900 p-1 rounded hover:bg-emerald-100"
+                title="Refresh Bridge Connection"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoadingStatus ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="p-4 rounded-xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white space-y-3 shadow-lg border border-slate-700/80">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-purple-500/20 border border-purple-400/30 flex items-center justify-center text-purple-300 shrink-0">
+                  <Terminal className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-xs text-white flex items-center gap-1.5">
+                    <span>Connect Local Engine to Auto-Post</span>
+                    <span className="text-[10px] font-mono px-1.5 py-0.2 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded">
+                      Required on Cloud
+                    </span>
+                  </h4>
+                  <p className="text-[11px] text-slate-300 leading-relaxed mt-0.5">
+                    Cloud servers get shadowbanned by Instagram. Synergy executes from your own workstation using your residential IP.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={checkStatus}
+                disabled={isLoadingStatus}
+                className="px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold text-white flex items-center gap-1 transition-all shrink-0 border border-white/10"
+              >
+                <RefreshCw className={`w-3 h-3 ${isLoadingStatus ? 'animate-spin' : ''}`} />
+                <span>{isLoadingStatus ? 'Checking...' : 'Check Bridge'}</span>
+              </button>
+            </div>
+
+            <div className="bg-black/60 rounded-lg p-2.5 flex items-center justify-between border border-white/10 font-mono text-xs">
+              <div className="flex items-center gap-2 text-slate-200">
+                <span className="text-emerald-400 font-bold">$</span>
+                <span className="text-purple-300 font-semibold">npm run ig:bridge</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => copyCommand('npm run ig:bridge', 'bridge')}
+                className="px-3 py-1 rounded-md bg-purple-600 hover:bg-purple-500 text-white text-[11px] font-sans font-bold flex items-center gap-1 transition-colors shadow-sm"
+              >
+                {copiedKey === 'bridge' ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-300" />
+                    <span>Copied!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copy Command</span>
+                  </>
+                )}
+              </button>
+            </div>
+            <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5">
+              <span>Run once in your local project folder • Keep terminal open while posting</span>
+              <span className="font-mono text-slate-500">Port: 4545</span>
             </div>
           </div>
         )}
@@ -287,8 +428,13 @@ export function InstagramAutomationModal({
               <button
                 type="button"
                 onClick={handleLaunchLogin}
-                disabled={isLaunchingLogin}
-                className="btn btn-secondary text-xs px-2.5 py-1 flex items-center gap-1"
+                disabled={isLaunchingLogin || (!bridgeConnected && Boolean(status?.isCloud))}
+                className="btn btn-secondary text-xs px-2.5 py-1 flex items-center gap-1 disabled:opacity-50"
+                title={
+                  !bridgeConnected && Boolean(status?.isCloud)
+                    ? 'Start local bridge first to launch desktop Chrome'
+                    : 'Launch Chrome to log in'
+                }
               >
                 <Lock className="w-3 h-3 text-purple-600" />
                 <span>{isLaunchingLogin ? 'Waiting for Login...' : 'Log In / Refresh'}</span>
@@ -458,11 +604,21 @@ export function InstagramAutomationModal({
           <button
             type="button"
             onClick={handlePublish}
-            disabled={isPublishing || (!status?.hasAuthSession && !isLaunchingLogin)}
+            disabled={
+              isPublishing ||
+              (!bridgeConnected && Boolean(status?.isCloud)) ||
+              (!status?.hasAuthSession && !isLaunchingLogin)
+            }
             className="btn btn-primary text-xs flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 via-rose-600 to-amber-600 hover:from-purple-500 hover:to-amber-500 text-white font-bold shadow-md disabled:opacity-50"
           >
             <Play className={`w-3.5 h-3.5 fill-current ${isPublishing ? 'animate-spin' : ''}`} />
-            <span>{isPublishing ? 'Publishing to Instagram...' : '⚡ Launch Instagram Post'}</span>
+            <span>
+              {isPublishing
+                ? 'Publishing to Instagram...'
+                : !bridgeConnected && Boolean(status?.isCloud)
+                ? 'Start Local Bridge to Post'
+                : '⚡ Launch Instagram Post'}
+            </span>
           </button>
         </div>
       </div>
