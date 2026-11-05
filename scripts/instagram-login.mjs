@@ -17,3 +17,4 @@ recordInstagramLogin((msg) => console.log(msg))
     console.error('\nERROR:', err.message);
     process.exit(1);
   });
+

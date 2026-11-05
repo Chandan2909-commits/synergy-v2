@@ -41,6 +41,24 @@ export async function POST(req: Request) {
       );
     }
 
+    const isCloud = Boolean(
+      process.env.VERCEL ||
+      process.env.AWS_LAMBDA_FUNCTION_NAME ||
+      process.env.NETLIFY
+    );
+
+    if (isCloud) {
+      return NextResponse.json(
+        {
+          success: false,
+          isCloud: true,
+          error:
+            'Browser automation cannot launch a desktop Chrome screen inside Vercel cloud serverless. Run Synergy locally ("npm run dev") or use the CLI command "npm run ig:post" to post with your saved session.',
+        },
+        { status: 400 }
+      );
+    }
+
     // Save base64 slides to temporary directory
     const tempDir = path.resolve(process.cwd(), '..', '..', '.temp-instagram-uploads', `post-${Date.now()}`);
     fs.mkdirSync(tempDir, { recursive: true });

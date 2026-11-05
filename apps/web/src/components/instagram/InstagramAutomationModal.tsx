@@ -35,6 +35,7 @@ export function InstagramAutomationModal({
 }: InstagramAutomationModalProps) {
   const [caption, setCaption] = useState(initialCaption);
   const [status, setStatus] = useState<{
+    isCloud?: boolean;
     hasAuthSession: boolean;
     postsCountToday: number;
     maxDaily: number;
@@ -64,6 +65,7 @@ export function InstagramAutomationModal({
       const data = await res.json();
       if (data.success) {
         setStatus({
+          isCloud: data.isCloud,
           hasAuthSession: data.hasAuthSession,
           postsCountToday: data.postsCountToday,
           maxDaily: data.maxDaily,
@@ -220,6 +222,35 @@ export function InstagramAutomationModal({
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {/* Cloud Environment Notice */}
+        {status?.isCloud && (
+          <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 space-y-2 text-xs">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold text-amber-900 block">
+                  Hosted Cloud Environment Detected (Vercel)
+                </span>
+                <p className="text-amber-800 text-[11px] leading-relaxed mt-0.5">
+                  Playwright desktop browser automation operates directly on your local workstation so Chrome can open securely with your display, saved session, and 2FA.
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <span className="text-[11px] font-semibold text-amber-900">Run Locally:</span>
+              <code className="px-2 py-0.5 bg-amber-100/80 text-amber-900 font-mono text-[11px] rounded border border-amber-300">
+                npm run ig:login
+              </code>
+              <code className="px-2 py-0.5 bg-amber-100/80 text-amber-900 font-mono text-[11px] rounded border border-amber-300">
+                npm run ig:post
+              </code>
+              <span className="text-[10px] text-amber-700 ml-auto font-medium">
+                Or launch UI with <span className="font-mono font-semibold">npm run dev</span>
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Status & Velocity Banner */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

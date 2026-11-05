@@ -1,4 +1,5 @@
 export interface VelocityStatus {
+  isCloud?: boolean;
   postsCountToday: number;
   maxDaily: number;
   canPost: boolean;
@@ -25,3 +26,4 @@ export function checkVelocityStatus(): VelocityStatus;
 export function recordInstagramLogin(onStatus?: (msg: string) => void): Promise<{ success: boolean; authPath: string }>;
 export function publishToInstagram(options: PublishOptions): Promise<PublishResult>;
 export function ensureStorageDir(): void;
+

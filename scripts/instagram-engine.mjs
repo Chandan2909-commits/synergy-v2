@@ -1,16 +1,45 @@
-import { chromium } from 'playwright';
 import path from 'path';
 import fs from 'fs';
 
-// Default Storage Locations
-const STORAGE_DIR = path.resolve(process.cwd(), 'storage', 'instagram');
+// Dynamic Playwright loader (prevents Next.js / Webpack bundling and build errors on Vercel)
+let cachedChromium = null;
+
+export async function getChromium() {
+  if (cachedChromium) return cachedChromium;
+  try {
+    const pkg = 'playwright';
+    const pw = await import(/* webpackIgnore: true */ pkg);
+    cachedChromium = pw.chromium || pw.default?.chromium;
+    return cachedChromium;
+  } catch (err) {
+    throw new Error(
+      'Playwright is not available in this cloud environment. To run desktop Instagram automation, please run Synergy locally ("npm run dev" or "npm run ig:post").'
+    );
+  }
+}
+
+// Environment Detection
+const isServerless = Boolean(
+  process.env.VERCEL ||
+  process.env.AWS_LAMBDA_FUNCTION_NAME ||
+  process.env.NETLIFY
+);
+
+// Default Storage Locations (use /tmp in serverless to prevent EROFS)
+const STORAGE_DIR = isServerless
+  ? path.join('/tmp', 'storage', 'instagram')
+  : path.resolve(process.cwd(), 'storage', 'instagram');
 const AUTH_FILE = path.join(STORAGE_DIR, 'auth.json');
 const LOG_FILE = path.join(STORAGE_DIR, 'velocity-log.json');
 
-// Ensure directory exists
+// Ensure directory exists safely
 export function ensureStorageDir() {
-  if (!fs.existsSync(STORAGE_DIR)) {
-    fs.mkdirSync(STORAGE_DIR, { recursive: true });
+  try {
+    if (!fs.existsSync(STORAGE_DIR)) {
+      fs.mkdirSync(STORAGE_DIR, { recursive: true });
+    }
+  } catch {
+    // Graceful fallback for read-only environments
   }
 }
 
@@ -51,6 +80,7 @@ export function checkVelocityStatus() {
   const lastPostAt = lastPost ? lastPost.timestamp : null;
 
   return {
+    isCloud: isServerless,
     postsCountToday: postsCount,
     maxDaily,
     canPost,
@@ -81,6 +111,7 @@ export async function recordInstagramLogin(onStatus = console.log) {
   ensureStorageDir();
   onStatus('🚀 Launching Chrome to capture your Instagram session...');
 
+  const chromium = await getChromium();
   const browser = await chromium.launch({
     headless: false,
     args: [
@@ -191,6 +222,7 @@ export async function publishToInstagram({
 
   onProgress(`[1/6] 🛡️ Initializing browser environment (Stealth: ${stealthMode ? 'ON' : 'OFF'}, Headless: ${headless})...`);
 
+  const chromium = await getChromium();
   const browser = await chromium.launch({
     headless,
     slowMo: stealthMode ? randomBetween(50, 100) : 20,
@@ -326,3 +358,4 @@ export async function publishToInstagram({
     throw err;
   }
 }
+

@@ -6,6 +6,24 @@ export const dynamic = 'force-dynamic';
 
 export async function POST() {
   try {
+    const isCloud = Boolean(
+      process.env.VERCEL ||
+      process.env.AWS_LAMBDA_FUNCTION_NAME ||
+      process.env.NETLIFY
+    );
+
+    if (isCloud) {
+      return NextResponse.json(
+        {
+          success: false,
+          isCloud: true,
+          error:
+            'Interactive desktop Chrome login is only available when running Synergy locally on your computer. Please run "npm run ig:login" in your local terminal to log in.',
+        },
+        { status: 400 }
+      );
+    }
+
     const scriptPath = path.resolve(process.cwd(), '..', '..', 'scripts', 'instagram-login.mjs');
 
     // Spawn node process to open Chrome window on desktop
@@ -28,3 +46,4 @@ export async function POST() {
     );
   }
 }
+
