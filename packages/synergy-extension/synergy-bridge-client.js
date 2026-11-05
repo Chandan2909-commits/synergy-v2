@@ -67,6 +67,11 @@
       return;
     }
 
+    if (type === 'OPEN_LOGIN_WINDOW') {
+      chrome.runtime.sendMessage({ action: 'OPEN_LOGIN_WINDOW' });
+      return;
+    }
+
     if (type === 'PUBLISH_INSTAGRAM') {
       chrome.runtime.sendMessage(
         { action: 'START_INSTAGRAM_POST', payload },
@@ -103,3 +108,4 @@
     );
   });
 })();
+

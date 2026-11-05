@@ -1,11 +1,13 @@
 /**
  * ============================================================================
  * SYNERGY SOCIAL ASSISTANT - BACKGROUND SERVICE WORKER
- * Manages tabs, Instagram cookies, and relays commands to the Instagram tab.
+ * Manages floating popup windows, cookies, and relays commands to Instagram.
  * ============================================================================
  */
 
 let activeSenderTabId = null;
+let activePopupWindowId = null;
+let activeInstagramTabId = null;
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   // 1. Verify Flow Integrity Handshake
@@ -23,25 +25,50 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true; // Keep channel open for async response
   }
 
-  // 2. Start Automated Post
+  // 2. Open Dedicated Instagram Popup Window for Login / Verification
+  if (request.action === 'OPEN_LOGIN_WINDOW') {
+    activeSenderTabId = sender.tab ? sender.tab.id : null;
+
+    chrome.windows.create(
+      {
+        url: 'https://www.instagram.com/',
+        type: 'popup',
+        width: 1100,
+        height: 850,
+        focused: true,
+      },
+      (newWindow) => {
+        activePopupWindowId = newWindow.id;
+        activeInstagramTabId = newWindow.tabs ? newWindow.tabs[0].id : null;
+        notifySynergyTab('🌐 Instagram popup window opened. Please log in or verify your account.');
+        sendResponse({ success: true, windowId: newWindow.id });
+      }
+    );
+    return true;
+  }
+
+  // 3. Start Automated Post via Floating Popup Window
   if (request.action === 'START_INSTAGRAM_POST') {
     const payload = request.payload || {};
     activeSenderTabId = sender.tab ? sender.tab.id : null;
 
-    notifySynergyTab('[1/5] 🧩 Synergy Social Assistant initialized. Checking active Instagram session...');
+    notifySynergyTab('[1/5] 🧩 Synergy Social Assistant initialized...');
 
-    chrome.cookies.get({ url: 'https://www.instagram.com', name: 'sessionid' }, (cookie) => {
-      if (!cookie || !cookie.value) {
-        notifySynergyTab('❌ Error: No active Instagram session found. Please log into Instagram in Chrome first.', true);
-        sendResponse({ success: false, error: 'Not logged into Instagram' });
-        return;
-      }
+    // Open Instagram in a dedicated FLOATING POPUP WINDOW (never a tab in the same window)
+    chrome.windows.create(
+      {
+        url: 'https://www.instagram.com/',
+        type: 'popup',
+        width: 1100,
+        height: 850,
+        focused: true,
+      },
+      (newWindow) => {
+        activePopupWindowId = newWindow.id;
+        const tabId = newWindow.tabs ? newWindow.tabs[0].id : null;
+        activeInstagramTabId = tabId;
 
-      notifySynergyTab('[2/5] 🌐 Opening Instagram tab with your residential session...');
-
-      // Open Instagram in a tab
-      chrome.tabs.create({ url: 'https://www.instagram.com/', active: true }, (igTab) => {
-        const tabId = igTab.id;
+        notifySynergyTab('[2/5] 🌐 Launched Instagram popup window with your residential session...');
 
         // Wait for page to finish loading before injecting post routine
         const onTabUpdated = (updatedTabId, changeInfo) => {
@@ -66,20 +93,20 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         };
 
         chrome.tabs.onUpdated.addListener(onTabUpdated);
-      });
-    });
+      }
+    );
 
-    sendResponse({ success: true, message: 'Instagram post job started' });
+    sendResponse({ success: true, message: 'Instagram post job started in popup window' });
     return true;
   }
 
-  // 3. Relay Progress from Instagram Tab -> Synergy Web Tab
+  // 4. Relay Progress from Instagram Tab -> Synergy Web Tab
   if (request.action === 'POST_PROGRESS') {
     notifySynergyTab(request.message);
     return;
   }
 
-  // 4. Relay Completion from Instagram Tab -> Synergy Web Tab
+  // 5. Relay Completion from Instagram Tab -> Synergy Web Tab
   if (request.action === 'POST_COMPLETE') {
     if (activeSenderTabId) {
       chrome.tabs.sendMessage(activeSenderTabId, {
@@ -89,6 +116,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         error: request.error,
         result: request.result,
       });
+    }
+
+    // Automatically close the popup window after successful completion
+    if (request.success && activePopupWindowId) {
+      setTimeout(() => {
+        try {
+          chrome.windows.remove(activePopupWindowId);
+        } catch {}
+      }, 4000);
     }
     return;
   }

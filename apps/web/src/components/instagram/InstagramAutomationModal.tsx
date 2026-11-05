@@ -696,15 +696,17 @@ export function InstagramAutomationModal({
               )}
 
               {activeMode === 'extension' ? (
-                <a
-                  href="https://www.instagram.com/"
-                  target="_blank"
-                  rel="noreferrer"
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.postMessage({ source: 'SYNERGY_WEB_STUDIO', type: 'OPEN_LOGIN_WINDOW' }, '*');
+                  }}
                   className="btn btn-secondary text-xs px-2.5 py-1 flex items-center gap-1"
+                  title="Open dedicated Instagram popup window to log in or handle 2FA"
                 >
                   <ExternalLink className="w-3 h-3 text-purple-600" />
-                  <span>Open Instagram</span>
-                </a>
+                  <span>Launch Login Popup</span>
+                </button>
               ) : (
                 <button
                   type="button"

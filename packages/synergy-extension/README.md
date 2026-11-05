@@ -28,3 +28,4 @@ Seamless Instagram Carousel Automation Companion for Synergy AI Studio.
 - **Zero Cloud Exposure**: Your Instagram session cookies never leave your computer.
 - **100% Residential IP**: Actions run directly inside your daily Chrome browser, completely bypassing datacenter IP bans.
 - **Anti-Flag Delays**: Automatically applies randomized delays to simulate human typing.
+
