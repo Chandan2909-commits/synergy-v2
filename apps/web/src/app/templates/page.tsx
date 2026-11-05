@@ -916,16 +916,6 @@ export default function TemplatesPage() {
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setIsInstagramModalOpen(true)}
-                    className="btn !bg-gradient-to-r !from-purple-50 !via-rose-50 !to-amber-50 hover:!from-purple-100 hover:!to-amber-100 !border-purple-300 text-purple-900 font-bold text-xs flex items-center gap-1.5 shadow-sm"
-                    title="Direct Playwright browser automation to publish carousel to Instagram"
-                  >
-                    <Smartphone className="w-3.5 h-3.5 text-rose-600" />
-                    <span>⚡ Auto-Post IG</span>
-                  </button>
-
-                  <button
-                    type="button"
                     onClick={handleCompileSlides}
                     disabled={isCompiling}
                     className="btn btn-secondary text-xs flex items-center gap-1.5"
