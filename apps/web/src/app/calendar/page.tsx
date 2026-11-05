@@ -249,6 +249,12 @@ export default function CalendarPage() {
     const queueInterval = setInterval(() => {
       if (isDispatchingRef.current) return; // Strict one-by-one execution
 
+      // If Chrome Extension is active, let the extension background worker drive the queue exclusively!
+      const hasExtension =
+        typeof document !== 'undefined' &&
+        Boolean(document.documentElement.getAttribute('data-synergy-extension'));
+      if (hasExtension) return; // Prevents race condition and double-posting
+
       const now = Date.now();
       const duePost = scheduledPosts.find(
         (p) => (!p.status || p.status === 'scheduled') && new Date(p.scheduledFor).getTime() <= now
@@ -256,7 +262,7 @@ export default function CalendarPage() {
 
       if (duePost && !dispatchedPostIdsRef.current.has(duePost.id)) {
         dispatchedPostIdsRef.current.add(duePost.id);
-        console.log(`[Content Calendar] ⏰ Exact scheduled time arrived for "${duePost.title}". Auto-triggering...`);
+        console.log(`[Content Calendar] ⏰ Exact scheduled time arrived for "${duePost.title}". Auto-triggering via fallback...`);
 
         // Immediately mark publishing in local state so find() won't pick it again
         setScheduledPosts((prev) =>
@@ -336,6 +342,17 @@ export default function CalendarPage() {
 
   // Immediate Force Dispatch from Calendar
   const handleDispatchNow = async (post: ScheduledPostItem) => {
+    if (post.status === 'published') {
+      setDispatchStatus('✅ This post has already been published to Instagram.');
+      setTimeout(() => setDispatchStatus(null), 3000);
+      return;
+    }
+
+    if (dispatchedPostIdsRef.current.has(post.id) && isDispatchingRef.current) {
+      console.log(`[Content Calendar] Post ${post.id} is already in dispatch progress.`);
+      return;
+    }
+
     setIsDispatchingNow(true);
     isDispatchingRef.current = true;
     dispatchedPostIdsRef.current.add(post.id);
@@ -516,10 +533,13 @@ export default function CalendarPage() {
     setTimeout(() => setCopiedCaption(false), 2000);
   };
 
-  // Compute countdown string
-  const getCountdownString = (isoDate: string) => {
+  // Compute countdown string with status awareness
+  const getCountdownString = (isoDate: string, status?: string) => {
+    if (status === 'published') return 'Published';
+    if (status === 'publishing') return 'Publishing in progress...';
+    if (status === 'failed') return 'Failed to publish';
     const diffMs = new Date(isoDate).getTime() - Date.now();
-    if (diffMs <= 0) return 'Due now (Queue processing)';
+    if (diffMs <= 0) return 'In Queue';
     const hours = Math.floor(diffMs / (1000 * 60 * 60));
     const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
     if (hours > 24) {
@@ -951,10 +971,24 @@ export default function CalendarPage() {
                 </span>
               </div>
 
-              <div className="flex items-center gap-1.5 font-bold text-purple-900 bg-purple-100/70 px-2.5 py-1 rounded-lg">
-                <Clock className="w-3.5 h-3.5 text-purple-600" />
-                <span>{getCountdownString(selectedPost.scheduledFor)}</span>
-              </div>
+              {selectedPost.status === 'published' ? (
+                <div className="flex items-center gap-1.5 font-bold text-emerald-800 bg-emerald-100/90 border border-emerald-300 px-2.5 py-1 rounded-lg">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>
+                    Published {selectedPost.publishedAt ? `at ${new Date(selectedPost.publishedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : ''}
+                  </span>
+                </div>
+              ) : selectedPost.status === 'publishing' ? (
+                <div className="flex items-center gap-1.5 font-bold text-purple-900 bg-purple-100 border border-purple-200 px-2.5 py-1 rounded-lg animate-pulse">
+                  <RefreshCw className="w-3.5 h-3.5 text-purple-600 animate-spin" />
+                  <span>Publishing Now</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 font-bold text-purple-900 bg-purple-100/70 border border-purple-200 px-2.5 py-1 rounded-lg">
+                  <Clock className="w-3.5 h-3.5 text-purple-600" />
+                  <span>{getCountdownString(selectedPost.scheduledFor, selectedPost.status)}</span>
+                </div>
+              )}
             </div>
 
             {/* Carousel Slide Previews (Horizontal Thumbnail Gallery) */}
@@ -965,7 +999,7 @@ export default function CalendarPage() {
                     <Layers className="w-3.5 h-3.5 text-purple-600" />
                     <span>Carousel Slides ({selectedPost.slides.length})</span>
                   </span>
-                  <span className="text-[11px] font-mono text-slate-500">High-Res PNGs</span>
+                  <span className="text-[11px] font-mono text-slate-500">Uncropped Native (4:5 / 1:1)</span>
                 </div>
 
                 <div className="flex items-center gap-2.5 overflow-x-auto pb-2 pt-1">
@@ -1018,16 +1052,38 @@ export default function CalendarPage() {
               </div>
             </div>
 
-            {/* One-by-One Queue Notice */}
-            <div className="p-3 rounded-xl bg-purple-50/80 border border-purple-200 text-[11px] text-purple-900 space-y-1">
-              <div className="font-bold flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4 text-purple-600" />
-                <span>Synergy Autonomous Residential Worker</span>
+            {/* Status Context Banner */}
+            {selectedPost.status === 'published' ? (
+              <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 space-y-1.5">
+                <div className="font-bold flex items-center gap-1.5 text-emerald-800">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>Published to Instagram</span>
+                </div>
+                <p className="leading-relaxed text-emerald-800/90 text-[11.5px]">
+                  This carousel was successfully posted to your Instagram profile {selectedPost.publishedAt ? `at ${new Date(selectedPost.publishedAt).toLocaleTimeString()}` : ''} via your residential extension runner with uncropped native resolution.
+                </p>
               </div>
-              <p className="leading-relaxed">
-                At the exact moment of <strong>{new Date(selectedPost.scheduledFor).toLocaleTimeString()}</strong>, the companion runner will launch the desktop browser and execute the post one-by-one.
-              </p>
-            </div>
+            ) : selectedPost.status === 'publishing' ? (
+              <div className="p-3.5 rounded-xl bg-purple-50 border border-purple-200 text-xs text-purple-900 space-y-1.5">
+                <div className="font-bold flex items-center gap-1.5 text-purple-800">
+                  <RefreshCw className="w-4 h-4 text-purple-600 animate-spin" />
+                  <span>Publishing in Progress</span>
+                </div>
+                <p className="leading-relaxed text-purple-800/90 text-[11.5px]">
+                  The Synergy Social Assistant popup window is actively uploading slides, selecting original aspect ratio, and finalizing publication.
+                </p>
+              </div>
+            ) : (
+              <div className="p-3 rounded-xl bg-purple-50/80 border border-purple-200 text-[11px] text-purple-900 space-y-1">
+                <div className="font-bold flex items-center gap-1.5">
+                  <ShieldCheck className="w-4 h-4 text-purple-600" />
+                  <span>Synergy Autonomous Residential Worker</span>
+                </div>
+                <p className="leading-relaxed">
+                  At the exact moment of <strong>{new Date(selectedPost.scheduledFor).toLocaleTimeString()}</strong>, the companion runner will launch the desktop browser and execute the post one-by-one.
+                </p>
+              </div>
+            )}
 
             {/* Dispatch Status Alert */}
             {dispatchStatus && (
@@ -1046,7 +1102,7 @@ export default function CalendarPage() {
                 className="btn btn-secondary text-xs text-rose-700 hover:bg-rose-50 hover:border-rose-200 flex items-center gap-1.5"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                <span>Cancel Post</span>
+                <span>{selectedPost.status === 'published' ? 'Delete from History' : 'Cancel Post'}</span>
               </button>
 
               <div className="flex items-center gap-2">
@@ -1068,6 +1124,18 @@ export default function CalendarPage() {
                     <Play className={`w-3.5 h-3.5 fill-current ${isDispatchingNow ? 'animate-spin' : ''}`} />
                     <span>{isDispatchingNow ? 'Dispatching...' : '⚡ Dispatch Now'}</span>
                   </button>
+                )}
+
+                {selectedPost.status === 'published' && (
+                  <a
+                    href="https://www.instagram.com/"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="btn btn-primary text-xs flex items-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold shadow-sm"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>View on Instagram</span>
+                  </a>
                 )}
               </div>
             </div>

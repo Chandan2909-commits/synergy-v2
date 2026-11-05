@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * SYNERGY SOCIAL ASSISTANT - BACKGROUND SERVICE WORKER (v1.1.3)
+ * SYNERGY SOCIAL ASSISTANT - BACKGROUND SERVICE WORKER (v1.1.4)
  * Manages floating popup windows, cookies, alarms, and exact-moment execution.
  * ============================================================================
  */
@@ -10,6 +10,7 @@ let activeInstagramTabId = null;
 let isPostingRunning = false;
 let currentRunningPostId = null;
 let postWatchdogTimer = null;
+const processedPostIds = new Set();
 
 // ============================================================================
 // WINDOW LIFECYCLE WATCHER: Clean up lock if popup window is closed
@@ -71,7 +72,14 @@ function deliverPostToTab(tabId, payload, onDone) {
 // ============================================================================
 
 function executeInstagramPost(payload, onDone) {
-  // If this exact post is already running, silently ignore duplicate triggers
+  // 1. Prevent duplicate execution if this post was already completed or in-flight
+  if (payload.id && processedPostIds.has(payload.id)) {
+    console.log(`[Background] Post "${payload.title || payload.id}" already processed/published. Skipping duplicate execution.`);
+    if (onDone) onDone(true, null);
+    return;
+  }
+
+  // 2. If another post is actively running, let the queue wait
   if (isPostingRunning) {
     if (payload.id && payload.id === currentRunningPostId) {
       console.log(`[Background] Post "${payload.title || 'Carousel'}" is already in progress.`);
@@ -85,6 +93,9 @@ function executeInstagramPost(payload, onDone) {
 
   isPostingRunning = true;
   currentRunningPostId = payload.id || null;
+  if (payload.id) {
+    processedPostIds.add(payload.id);
+  }
 
   // 3.5-Minute Watchdog Timer to prevent lock from getting stuck indefinitely
   if (postWatchdogTimer) clearTimeout(postWatchdogTimer);
@@ -188,23 +199,35 @@ function checkDueScheduledQueue() {
     const posts = res.scheduledPosts || [];
     const now = Date.now();
 
-    // Find posts that are due
+    // Find posts that are due and not yet processed
     const duePosts = posts
-      .filter((p) => (!p.status || p.status === 'scheduled') && new Date(p.scheduledFor).getTime() <= now)
+      .filter(
+        (p) =>
+          (!p.status || p.status === 'scheduled') &&
+          new Date(p.scheduledFor).getTime() <= now &&
+          !processedPostIds.has(p.id)
+      )
       .sort((a, b) => new Date(a.scheduledFor).getTime() - new Date(b.scheduledFor).getTime());
 
     if (duePosts.length === 0) return;
 
     const postToRun = duePosts[0];
     postToRun.status = 'publishing';
+    processedPostIds.add(postToRun.id);
 
     chrome.storage.local.set({ scheduledPosts: posts }, () => {
       console.log(`[Extension Scheduler] ⏰ Auto-triggering scheduled post: "${postToRun.title}"`);
       executeInstagramPost(postToRun, (success, errorMsg) => {
-        if (errorMsg === 'BUSY') return; // Will retry next cycle naturally
+        if (errorMsg === 'BUSY') {
+          processedPostIds.delete(postToRun.id); // Retry next cycle
+          return;
+        }
         postToRun.status = success ? 'published' : 'failed';
         postToRun.publishedAt = new Date().toISOString();
-        if (errorMsg) postToRun.error = errorMsg;
+        if (errorMsg) {
+          postToRun.error = errorMsg;
+          processedPostIds.delete(postToRun.id); // Allow retry if failed
+        }
         chrome.storage.local.set({ scheduledPosts: posts });
       });
     });
@@ -237,7 +260,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       sendResponse({
         success: true,
         installed: true,
-        version: '1.1.3',
+        version: '1.1.4',
         hasInstagramSession,
         origin: 'Chrome Extension Service Worker',
       });
@@ -320,6 +343,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
     // Update scheduled post status in local extension storage
     if (finishedPostId) {
+      if (request.success) {
+        processedPostIds.add(finishedPostId);
+      } else {
+        processedPostIds.delete(finishedPostId); // Allow retry if failed
+      }
+
       chrome.storage.local.get(['scheduledPosts'], (res) => {
         const posts = res.scheduledPosts || [];
         const idx = posts.findIndex((p) => p.id === finishedPostId);

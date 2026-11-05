@@ -190,8 +190,48 @@ chrome.runtime.onMessage.addListener(async (request) => {
     await sleep(randomBetween(3500, 5000));
 
     // ========================================================================
-    // Step 5: Advance through "Crop" and "Filters"
+    // Step 5: Set Full Uncropped Aspect Ratio (Original / 4:5) & Advance
     // ========================================================================
+    async function selectOriginalCrop() {
+      try {
+        sendProgress('[4/5] 📐 Setting uncropped aspect ratio (Original / 4:5)...');
+
+        let cropBtn = null;
+        for (let i = 0; i < 15; i++) {
+          cropBtn =
+            document.querySelector('svg[aria-label="Select crop"], svg[aria-label="Crop"]')?.closest('button, div[role="button"]') ||
+            document.querySelector('button[aria-label*="crop" i], div[role="button"][aria-label*="crop" i]');
+          if (cropBtn) break;
+          await sleep(300);
+        }
+
+        if (cropBtn) {
+          cropBtn.click();
+          await sleep(700);
+
+          // In the aspect ratio dropdown, find "Original" or "4:5"
+          const clickables = Array.from(document.querySelectorAll('button, div[role="button"], span'));
+          const originalOpt = clickables.find((el) => {
+            const text = el.textContent?.trim().toLowerCase();
+            return text === 'original' || text === '4:5';
+          }) || document.querySelector('svg[aria-label="Photo outline icon"], svg[aria-label="Original"]')?.closest('button, div[role="button"]');
+
+          if (originalOpt) {
+            originalOpt.click();
+            await sleep(800);
+          }
+
+          // Close the crop popover if still expanded
+          try {
+            cropBtn.click();
+          } catch {}
+          await sleep(400);
+        }
+      } catch (e) {
+        console.warn('[Aspect Ratio Note]', e);
+      }
+    }
+
     async function clickNextButton() {
       for (let attempt = 0; attempt < 15; attempt++) {
         const dialogs = Array.from(document.querySelectorAll('div[role="dialog"]'));
@@ -224,10 +264,16 @@ chrome.runtime.onMessage.addListener(async (request) => {
       return false;
     }
 
+    // 1. Select uncropped aspect ratio to match the preview exactly
+    await selectOriginalCrop();
+    await sleep(randomBetween(1200, 2000));
+
+    // 2. Advance through Crop -> Filters
     sendProgress('[4/5] ⏩ Advancing through crop & aspect adjustments...');
     await clickNextButton();
     await sleep(randomBetween(2000, 3500));
 
+    // 3. Advance through Filters -> Caption
     sendProgress('[4/5] ⏩ Advancing through filters & edits...');
     await clickNextButton();
     await sleep(randomBetween(2000, 3500));
