@@ -24,8 +24,10 @@ import {
   ArrowRight,
   Sliders,
   CheckCircle2,
+  Smartphone,
 } from 'lucide-react';
 import { SignatureHeroCard } from '@/components/hero/SignatureHeroCard';
+import { InstagramAutomationModal } from '@/components/instagram/InstagramAutomationModal';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { SocialPlatform } from '@synergy/types';
 import {
@@ -83,6 +85,7 @@ export default function TemplatesPage() {
 
   // Publishing / Scheduling Modal State
   const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
+  const [isInstagramModalOpen, setIsInstagramModalOpen] = useState(false);
   const [publishCaption, setPublishCaption] = useState('');
   const [publishPlatforms, setPublishPlatforms] = useState<SocialPlatform[]>([
     'instagram',
@@ -333,6 +336,7 @@ export default function TemplatesPage() {
       setCompileProgress(null);
       setToastMessage(`✅ Successfully compiled ${images.length} slides!`);
       setTimeout(() => setToastMessage(null), 3500);
+      return images;
     } catch (err: any) {
       console.error('Template compilation failed:', err);
       alert(`Compilation failed: ${err.message || 'Unknown error'}`);
@@ -442,6 +446,15 @@ export default function TemplatesPage() {
         description="Explore our in-house collection of high-converting social carousel templates. Generate tailored slide copy with AI while preserving pixel-perfect template styling, compile to 2x Retina PNGs, and publish directly."
         primaryAction={
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsInstagramModalOpen(true)}
+              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 via-rose-600 to-amber-600 text-white font-bold text-xs shadow-md hover:opacity-95 transition-all flex items-center gap-1.5"
+              title="Post directly to Instagram using Playwright browser automation"
+            >
+              <Smartphone className="w-3.5 h-3.5" />
+              <span>⚡ Auto-Post IG</span>
+            </button>
             <button
               type="button"
               onClick={handleCompileSlides}
@@ -586,6 +599,16 @@ export default function TemplatesPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsInstagramModalOpen(true)}
+              className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 via-rose-600 to-amber-600 text-white font-bold text-xs shadow-md hover:opacity-95 transition-all flex items-center gap-1.5"
+              title="Post directly to Instagram with Playwright browser automation"
+            >
+              <Smartphone className="w-3.5 h-3.5" />
+              <span>⚡ Auto-Post IG</span>
+            </button>
+
             <button
               type="button"
               onClick={handleCompileSlides}
@@ -910,6 +933,16 @@ export default function TemplatesPage() {
                 </span>
 
                 <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsInstagramModalOpen(true)}
+                    className="btn !bg-gradient-to-r !from-purple-50 !via-rose-50 !to-amber-50 hover:!from-purple-100 hover:!to-amber-100 !border-purple-300 text-purple-900 font-bold text-xs flex items-center gap-1.5 shadow-sm"
+                    title="Direct Playwright browser automation to publish carousel to Instagram"
+                  >
+                    <Smartphone className="w-3.5 h-3.5 text-rose-600" />
+                    <span>⚡ Auto-Post IG</span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={handleCompileSlides}
@@ -1315,6 +1348,15 @@ export default function TemplatesPage() {
           </div>
         </div>
       )}
+
+      {/* Instagram Automation Modal (Playwright Engine) */}
+      <InstagramAutomationModal
+        isOpen={isInstagramModalOpen}
+        onClose={() => setIsInstagramModalOpen(false)}
+        compiledSlides={compiledImages}
+        initialCaption={publishCaption}
+        onCompileRequest={handleCompileSlides}
+      />
     </div>
   );
 }

@@ -29,9 +29,11 @@ pnpm-debug.log*
 *.sqlite3
 *.db
 
-# OS Files
-.DS_Store
-Thumbs.db
+# Automation Storage & Credentials
+storage/instagram/
+*.auth.json
+auth.json
+.temp-instagram-uploads/
 
 # IDE & Editor
 .vscode/

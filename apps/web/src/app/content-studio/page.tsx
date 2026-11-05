@@ -30,8 +30,10 @@ import {
   FileText,
   Eraser,
   HelpCircle,
+  Smartphone,
 } from 'lucide-react';
 import { SignatureHeroCard } from '@/components/hero/SignatureHeroCard';
+import { InstagramAutomationModal } from '@/components/instagram/InstagramAutomationModal';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 import { SocialPlatform } from '@synergy/types';
 import {
@@ -870,6 +872,7 @@ export default function ContentStudioPage() {
       setCompileProgress(null);
       setToastMessage(`✅ Successfully compiled ${images.length} slides matching live preview!`);
       setTimeout(() => setToastMessage(null), 3500);
+      return images;
     } catch (err: any) {
       console.error('Compilation failed:', err);
       alert(`Compilation failed: ${err.message || 'Unknown error'}`);
@@ -913,6 +916,7 @@ export default function ContentStudioPage() {
   // PUBLISHING / SCHEDULING MODAL STATE
   // ----------------------------------------------------------------------------
   const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
+  const [isInstagramModalOpen, setIsInstagramModalOpen] = useState(false);
   const [publishCaption, setPublishCaption] = useState(
     '🚀 Excited to share our latest tactical framework for autonomous AI operations! Swipe through the carousel for the complete breakdown. What are your thoughts? #AI #MarketingOperations #Synergy'
   );
@@ -971,6 +975,15 @@ export default function ContentStudioPage() {
         description="Write or paste custom HTML/CSS code per slide, preview live in real-time, and compile to crisp 2x Retina PNGs for immediate multi-platform publishing."
         primaryAction={
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsInstagramModalOpen(true)}
+              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 via-rose-600 to-amber-600 text-white font-bold text-xs shadow-md hover:opacity-95 transition-all flex items-center gap-1.5"
+              title="Post directly to Instagram using Playwright browser automation"
+            >
+              <Smartphone className="w-3.5 h-3.5" />
+              <span>⚡ Auto-Post IG</span>
+            </button>
             <button
               type="button"
               onClick={handleCompileCarousel}
@@ -1227,22 +1240,34 @@ export default function ContentStudioPage() {
                     Each slide is independent. Changes update the preview immediately.
                   </span>
 
-                  <button
-                    type="button"
-                    onClick={handleCompileCarousel}
-                    disabled={isCompiling}
-                    className="btn btn-primary flex items-center gap-2 cursor-pointer shadow-md hover:shadow-lg transition-all"
-                  >
-                    <Play
-                      className={`w-3.5 h-3.5 fill-current ${isCompiling ? 'animate-spin' : ''
-                        }`}
-                    />
-                    <span>
-                      {isCompiling
-                        ? compileProgress || 'Compiling Images...'
-                        : `Compile All ${codeSlides.length} Slides`}
-                    </span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsInstagramModalOpen(true)}
+                      className="btn btn-secondary !bg-gradient-to-r !from-purple-50 !via-rose-50 !to-amber-50 hover:!from-purple-100 hover:!to-amber-100 !border-purple-300 text-purple-900 font-bold text-xs flex items-center gap-1.5 shadow-sm"
+                      title="Direct Playwright browser automation to publish carousel to Instagram"
+                    >
+                      <Smartphone className="w-3.5 h-3.5 text-rose-600" />
+                      <span>⚡ Auto-Post IG</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleCompileCarousel}
+                      disabled={isCompiling}
+                      className="btn btn-primary flex items-center gap-2 cursor-pointer shadow-md hover:shadow-lg transition-all"
+                    >
+                      <Play
+                        className={`w-3.5 h-3.5 fill-current ${isCompiling ? 'animate-spin' : ''
+                          }`}
+                      />
+                      <span>
+                        {isCompiling
+                          ? compileProgress || 'Compiling Images...'
+                          : `Compile All ${codeSlides.length} Slides`}
+                      </span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1470,6 +1495,16 @@ export default function ContentStudioPage() {
                   </div>
 
                   <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsInstagramModalOpen(true)}
+                      className="btn !bg-gradient-to-r !from-purple-600 !via-rose-600 !to-amber-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-md hover:opacity-95"
+                      title="Post directly to Instagram with Playwright browser automation"
+                    >
+                      <Smartphone className="w-3.5 h-3.5" />
+                      <span>⚡ Auto-Post IG</span>
+                    </button>
+
                     <button
                       type="button"
                       onClick={() => {
@@ -1724,6 +1759,15 @@ export default function ContentStudioPage() {
           </div>
         </div>
       )}
+
+      {/* Instagram Automation Modal (Playwright Engine) */}
+      <InstagramAutomationModal
+        isOpen={isInstagramModalOpen}
+        onClose={() => setIsInstagramModalOpen(false)}
+        compiledSlides={compiledImages}
+        initialCaption={publishCaption}
+        onCompileRequest={handleCompileCarousel}
+      />
     </div>
   );
 }
