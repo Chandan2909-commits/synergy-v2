@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * SYNERGY SOCIAL ASSISTANT - BACKGROUND SERVICE WORKER (v1.1.0)
+ * SYNERGY SOCIAL ASSISTANT - BACKGROUND SERVICE WORKER (v1.1.1)
  * Manages floating popup windows, cookies, alarms, and exact-moment execution.
  * ============================================================================
  */
@@ -10,19 +10,62 @@ let activePopupWindowId = null;
 let activeInstagramTabId = null;
 let isPostingRunning = false;
 let currentRunningPostId = null;
+let postWatchdogTimer = null;
+
+// ============================================================================
+// WINDOW LIFECYCLE WATCHER: Clean up lock if popup window is closed
+// ============================================================================
+
+chrome.windows.onRemoved.addListener((windowId) => {
+  if (windowId === activePopupWindowId) {
+    console.log('[Background] Instagram popup window closed.');
+    activePopupWindowId = null;
+    activeInstagramTabId = null;
+    isPostingRunning = false;
+    currentRunningPostId = null;
+    if (postWatchdogTimer) {
+      clearTimeout(postWatchdogTimer);
+      postWatchdogTimer = null;
+    }
+  }
+});
 
 // ============================================================================
 // CORE EXECUTION ENGINE: Launch Dedicated Popup & Post to Instagram
 // ============================================================================
 
 function executeInstagramPost(payload, onDone) {
+  // If this exact post is already running, avoid duplicate triggers
   if (isPostingRunning) {
-    if (onDone) onDone(false, 'Another post job is currently running. Queue will retry next cycle.');
+    if (payload.id && payload.id === currentRunningPostId) {
+      notifySynergyTab(`[Running] Post "${payload.title || 'Carousel'}" is already in progress...`);
+      if (onDone) onDone(true, null);
+      return;
+    }
+    // If a different post is running, let the queue wait
+    console.log('[Background] Another post is currently running. Queue will process this next cycle.');
+    if (onDone) onDone(false, 'BUSY');
     return;
   }
 
   isPostingRunning = true;
   currentRunningPostId = payload.id || null;
+
+  // 3-Minute Watchdog Timer to prevent lock from getting stuck indefinitely
+  if (postWatchdogTimer) clearTimeout(postWatchdogTimer);
+  postWatchdogTimer = setTimeout(() => {
+    if (isPostingRunning) {
+      console.warn('[Background] Watchdog: Post execution exceeded 3 minutes. Releasing lock.');
+      isPostingRunning = false;
+      currentRunningPostId = null;
+      if (activePopupWindowId) {
+        try {
+          chrome.windows.remove(activePopupWindowId);
+        } catch {}
+        activePopupWindowId = null;
+      }
+    }
+  }, 180000);
 
   notifySynergyTab(`[1/5] 🧩 Synergy Social Assistant initialized: "${payload.title || 'Carousel'}"...`);
 
@@ -117,6 +160,7 @@ function checkDueScheduledQueue() {
     chrome.storage.local.set({ scheduledPosts: posts }, () => {
       console.log(`[Extension Scheduler] ⏰ Auto-triggering scheduled post: "${postToRun.title}"`);
       executeInstagramPost(postToRun, (success, errorMsg) => {
+        if (errorMsg === 'BUSY') return; // Will retry next cycle naturally
         postToRun.status = success ? 'published' : 'failed';
         postToRun.publishedAt = new Date().toISOString();
         if (errorMsg) postToRun.error = errorMsg;
@@ -152,7 +196,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       sendResponse({
         success: true,
         installed: true,
-        version: '1.1.0',
+        version: '1.1.1',
         hasInstagramSession,
         origin: 'Chrome Extension Service Worker',
       });
@@ -186,11 +230,11 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'START_INSTAGRAM_POST') {
     activeSenderTabId = sender.tab ? sender.tab.id : null;
     executeInstagramPost(request.payload || {}, (success, errorMsg) => {
-      if (!success) {
+      if (!success && errorMsg !== 'BUSY') {
         notifySynergyTab(`❌ Error: ${errorMsg}`, true);
       }
     });
-    sendResponse({ success: true, message: 'Instagram post job started in popup window' });
+    sendResponse({ success: true, message: 'Instagram post job dispatched to popup window' });
     return true;
   }
 
@@ -229,6 +273,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   // 6. Relay Completion from Instagram Tab -> Synergy Web Tab
   if (request.action === 'POST_COMPLETE') {
     isPostingRunning = false;
+    if (postWatchdogTimer) {
+      clearTimeout(postWatchdogTimer);
+      postWatchdogTimer = null;
+    }
 
     // Update scheduled post status in local extension storage
     if (currentRunningPostId) {

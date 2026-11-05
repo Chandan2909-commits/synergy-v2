@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import {
   Calendar as CalendarIcon,
@@ -65,6 +65,8 @@ export default function CalendarPage() {
   const [isDispatchingNow, setIsDispatchingNow] = useState<boolean>(false);
   const [dispatchStatus, setDispatchStatus] = useState<string | null>(null);
   const [copiedCaption, setCopiedCaption] = useState<boolean>(false);
+  const isDispatchingRef = useRef<boolean>(false);
+  const dispatchedPostIdsRef = useRef<Set<string>>(new Set());
 
   // Sync scheduled posts from API, Bridge, and LocalStorage
   const syncScheduledPosts = useCallback(async (isManualRefresh = false) => {
@@ -161,13 +163,22 @@ export default function CalendarPage() {
 
       if (type === 'POST_RESULT') {
         setIsDispatchingNow(false);
+        isDispatchingRef.current = false;
         if (success) {
           setDispatchStatus('🎉 Successfully published to Instagram via Extension!');
           setTimeout(() => {
             syncScheduledPosts();
-          }, 1500);
+            setDispatchStatus(null);
+          }, 3500);
         } else {
-          setDispatchStatus(`❌ Extension error: ${error || 'Failed to complete Instagram post'}`);
+          // If the message is just that another job is running or busy, handle gracefully
+          if (error && (error.includes('Another post job') || error.includes('BUSY'))) {
+            setDispatchStatus('⚡ Instagram post automation is actively in progress in popup window...');
+            setTimeout(() => setDispatchStatus(null), 3000);
+          } else {
+            setDispatchStatus(`❌ Extension: ${error || 'Failed to complete Instagram post'}`);
+            setTimeout(() => setDispatchStatus(null), 6000);
+          }
         }
       }
     };
@@ -179,21 +190,28 @@ export default function CalendarPage() {
   // AUTOMATED DUE-POST QUEUE WATCHER (Triggers posts automatically at their exact scheduled time)
   useEffect(() => {
     const queueInterval = setInterval(() => {
-      if (isDispatchingNow) return; // Strict one-by-one execution
+      if (isDispatchingRef.current) return; // Strict one-by-one execution
 
       const now = Date.now();
       const duePost = scheduledPosts.find(
         (p) => (!p.status || p.status === 'scheduled') && new Date(p.scheduledFor).getTime() <= now
       );
 
-      if (duePost) {
+      if (duePost && !dispatchedPostIdsRef.current.has(duePost.id)) {
+        dispatchedPostIdsRef.current.add(duePost.id);
         console.log(`[Content Calendar] ⏰ Exact scheduled time arrived for "${duePost.title}". Auto-triggering...`);
+
+        // Immediately mark publishing in local state so find() won't pick it again
+        setScheduledPosts((prev) =>
+          prev.map((p) => (p.id === duePost.id ? { ...p, status: 'publishing' as const } : p))
+        );
+
         handleDispatchNow(duePost);
       }
-    }, 3000);
+    }, 4000);
 
     return () => clearInterval(queueInterval);
-  }, [scheduledPosts, isDispatchingNow]);
+  }, [scheduledPosts]);
 
   // Month Navigation Handlers
   const handlePrevMonth = () => {
@@ -262,6 +280,8 @@ export default function CalendarPage() {
   // Immediate Force Dispatch from Calendar
   const handleDispatchNow = async (post: ScheduledPostItem) => {
     setIsDispatchingNow(true);
+    isDispatchingRef.current = true;
+    dispatchedPostIdsRef.current.add(post.id);
     setDispatchStatus('Initializing immediate dispatch...');
 
     try {
@@ -362,11 +382,18 @@ export default function CalendarPage() {
         setScheduledPosts(finalFailed);
       }
     } finally {
-      setIsDispatchingNow(false);
-      setTimeout(() => {
-        setDispatchStatus(null);
-        syncScheduledPosts();
-      }, 4000);
+      const hasExtension =
+        typeof document !== 'undefined' &&
+        Boolean(document.documentElement.getAttribute('data-synergy-extension'));
+
+      if (!hasExtension) {
+        setIsDispatchingNow(false);
+        isDispatchingRef.current = false;
+        setTimeout(() => {
+          setDispatchStatus(null);
+          syncScheduledPosts();
+        }, 4000);
+      }
     }
   };
 

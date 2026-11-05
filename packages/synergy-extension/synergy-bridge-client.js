@@ -7,7 +7,7 @@
  */
 
 (function () {
-  const EXTENSION_VERSION = '1.1.0';
+  const EXTENSION_VERSION = '1.1.1';
 
   // Mark document element for instant synchronous detection by Synergy Web UI
   document.documentElement.setAttribute('data-synergy-extension', EXTENSION_VERSION);
