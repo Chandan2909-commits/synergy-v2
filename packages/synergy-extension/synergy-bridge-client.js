@@ -72,6 +72,11 @@
       return;
     }
 
+    if (type === 'SCHEDULE_POST') {
+      chrome.runtime.sendMessage({ action: 'SCHEDULE_POST', payload });
+      return;
+    }
+
     if (type === 'PUBLISH_INSTAGRAM') {
       chrome.runtime.sendMessage(
         { action: 'START_INSTAGRAM_POST', payload },

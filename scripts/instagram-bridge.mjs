@@ -2,15 +2,17 @@
 
 /**
  * ============================================================================
- * SYNERGY LOCAL COMPANION BRIDGE
+ * SYNERGY LOCAL COMPANION BRIDGE & SCHEDULER
  * ============================================================================
  * Enables the hosted Synergy Web App (Vercel/Cloud) to securely trigger
- * desktop browser automation directly on the user's local machine.
+ * desktop browser automation directly on the user's local machine, both
+ * immediately and on scheduled calendar timestamps.
  *
  * Benefits:
  * 1. 0% Datacenter IP Bans: All requests originate from your residential IP.
  * 2. 100% Privacy: Your Instagram session cookies never leave your laptop.
  * 3. Real Chrome GUI: Interactive 2FA and manual login handled natively.
+ * 4. Precision Scheduler: Executes due posts automatically at exact moments.
  * ============================================================================
  */
 
@@ -22,6 +24,11 @@ import {
   publishToInstagram,
   recordInstagramLogin,
   ensureStorageDir,
+  getScheduledPosts,
+  saveScheduledPosts,
+  addScheduledPost,
+  updateScheduledPost,
+  removeScheduledPost,
 } from './instagram-engine.mjs';
 
 const PORT = process.env.BRIDGE_PORT ? parseInt(process.env.BRIDGE_PORT, 10) : 4545;
@@ -29,7 +36,7 @@ const HOST = '127.0.0.1';
 
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
   'Access-Control-Max-Age': '86400',
 };
@@ -42,9 +49,86 @@ function sendJson(res, statusCode, data) {
   res.end(JSON.stringify(data));
 }
 
-// Active login state tracker
+// Active execution state tracker
 let isLoginRunning = false;
 let isPublishRunning = false;
+
+// ============================================================================
+// AUTOMATED SCHEDULER WORKER (Checks due posts and publishes one-by-one)
+// ============================================================================
+
+async function processScheduledQueue() {
+  if (isPublishRunning || isLoginRunning) return; // Strict one-by-one execution
+
+  const queue = getScheduledPosts();
+  const now = Date.now();
+
+  // Find posts that are due and not yet executed
+  const duePosts = queue
+    .filter((p) => p.status === 'scheduled' && new Date(p.scheduledFor).getTime() <= now)
+    .sort((a, b) => new Date(a.scheduledFor).getTime() - new Date(b.scheduledFor).getTime());
+
+  if (duePosts.length === 0) return;
+
+  // Pick the earliest due post (process one-by-one)
+  const job = duePosts[0];
+  isPublishRunning = true;
+  job.status = 'publishing';
+  saveScheduledPosts(queue);
+
+  console.log('\n======================================================================');
+  console.log(`  ⏰ [SCHEDULED DISPATCH] Triggering post: "${job.title}"`);
+  console.log(`  Scheduled Time:   ${job.scheduledFor}`);
+  console.log(`  Slide Count:      ${job.slidePaths?.length || job.slides?.length || 1}`);
+  console.log(`  Executing via:    Desktop Chrome with Stealth & Human Delays`);
+  console.log('======================================================================');
+
+  try {
+    // Ensure slides exist on disk
+    let paths = job.slidePaths || [];
+    if (!paths.length || !fs.existsSync(paths[0])) {
+      const tempDir = path.resolve(process.cwd(), 'storage', 'instagram', 'scheduled', job.id);
+      fs.mkdirSync(tempDir, { recursive: true });
+      paths = [];
+      (job.slides || []).forEach((dataUrl, idx) => {
+        const base64Data = dataUrl.replace(/^data:image\/\w+;base64,/, '');
+        const buffer = Buffer.from(base64Data, 'base64');
+        const fp = path.join(tempDir, `slide_${idx + 1}.png`);
+        fs.writeFileSync(fp, buffer);
+        paths.push(fp);
+      });
+      job.slidePaths = paths;
+    }
+
+    const result = await publishToInstagram({
+      imagePaths: paths,
+      caption: job.caption,
+      headless: false,
+      stealthMode: true,
+      onProgress: (msg) => console.log(`[Scheduled Worker ${job.id}] ${msg}`),
+    });
+
+    job.status = 'published';
+    job.publishedAt = new Date().toISOString();
+    job.result = result;
+    saveScheduledPosts(queue);
+    console.log(`[Scheduler] 🎉 Post "${job.title}" published successfully to Instagram!\n`);
+  } catch (err) {
+    job.status = 'failed';
+    job.error = err.message;
+    saveScheduledPosts(queue);
+    console.error(`[Scheduler] ❌ Post "${job.title}" failed:`, err.message, '\n');
+  } finally {
+    isPublishRunning = false;
+  }
+}
+
+// Background scheduler tick: every 10 seconds
+setInterval(processScheduledQueue, 10000);
+
+// ============================================================================
+// HTTP API ROUTER
+// ============================================================================
 
 const server = http.createServer(async (req, res) => {
   // Handle CORS preflight
@@ -63,12 +147,14 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'GET' && (pathname === '/status' || pathname === '/health' || pathname === '/')) {
     try {
       const status = checkVelocityStatus();
+      const scheduledPosts = getScheduledPosts();
       sendJson(res, 200, {
         success: true,
         online: true,
-        bridgeVersion: '1.0.0',
+        bridgeVersion: '1.2.0',
         isLoginRunning,
         isPublishRunning,
+        scheduledCount: scheduledPosts.filter((p) => p.status === 'scheduled').length,
         ...status,
       });
     } catch (err) {
@@ -78,7 +164,101 @@ const server = http.createServer(async (req, res) => {
   }
 
   // --------------------------------------------------------------------------
-  // 2. POST /login - Launch Chrome for manual Instagram login & session capture
+  // 2. GET /schedule - List all scheduled posts
+  // --------------------------------------------------------------------------
+  if (req.method === 'GET' && pathname === '/schedule') {
+    try {
+      const posts = getScheduledPosts();
+      sendJson(res, 200, { success: true, posts });
+    } catch (err) {
+      sendJson(res, 500, { success: false, error: err.message });
+    }
+    return;
+  }
+
+  // --------------------------------------------------------------------------
+  // 3. POST /schedule - Create or queue a scheduled post
+  // --------------------------------------------------------------------------
+  if (req.method === 'POST' && pathname === '/schedule') {
+    let rawBody = '';
+    req.on('data', (chunk) => {
+      rawBody += chunk;
+      if (rawBody.length > 50 * 1024 * 1024) req.destroy();
+    });
+
+    req.on('end', () => {
+      try {
+        const body = JSON.parse(rawBody || '{}');
+        const { id, title, slides = [], caption = '', scheduledFor, platforms = ['instagram'] } = body;
+
+        if (!slides || slides.length === 0) {
+          sendJson(res, 400, { success: false, error: 'At least one slide image is required.' });
+          return;
+        }
+
+        if (!scheduledFor) {
+          sendJson(res, 400, { success: false, error: 'Scheduled date and time is required.' });
+          return;
+        }
+
+        const postId = id || `sched-ig-${Date.now()}`;
+        const tempDir = path.resolve(process.cwd(), 'storage', 'instagram', 'scheduled', postId);
+        fs.mkdirSync(tempDir, { recursive: true });
+
+        const slidePaths = [];
+        slides.forEach((dataUrl, idx) => {
+          const base64Data = dataUrl.replace(/^data:image\/\w+;base64,/, '');
+          const buffer = Buffer.from(base64Data, 'base64');
+          const fp = path.join(tempDir, `slide_${idx + 1}.png`);
+          fs.writeFileSync(fp, buffer);
+          slidePaths.push(fp);
+        });
+
+        const newPost = {
+          id: postId,
+          title: title || 'Scheduled Multi-Slide Carousel',
+          slides,
+          slidePaths,
+          caption,
+          scheduledFor,
+          status: 'scheduled',
+          platform: 'instagram',
+          platforms,
+          createdAt: new Date().toISOString(),
+        };
+
+        addScheduledPost(newPost);
+        console.log(`[Bridge Schedule] 📅 Queued post "${newPost.title}" for ${scheduledFor}`);
+
+        sendJson(res, 200, {
+          success: true,
+          post: newPost,
+          message: `Post scheduled for ${new Date(scheduledFor).toLocaleString()}!`,
+        });
+      } catch (err) {
+        sendJson(res, 400, { success: false, error: err.message });
+      }
+    });
+    return;
+  }
+
+  // --------------------------------------------------------------------------
+  // 4. DELETE /schedule - Cancel or delete a scheduled post
+  // --------------------------------------------------------------------------
+  if (req.method === 'DELETE' && pathname === '/schedule') {
+    const id = url.searchParams.get('id');
+    if (!id) {
+      sendJson(res, 400, { success: false, error: 'Post ID is required' });
+      return;
+    }
+    removeScheduledPost(id);
+    console.log(`[Bridge Schedule] 🗑️ Removed scheduled post ${id}`);
+    sendJson(res, 200, { success: true, message: `Scheduled post ${id} removed.` });
+    return;
+  }
+
+  // --------------------------------------------------------------------------
+  // 5. POST /login - Launch Chrome for manual Instagram login & session capture
   // --------------------------------------------------------------------------
   if (req.method === 'POST' && pathname === '/login') {
     if (isLoginRunning) {
@@ -92,7 +272,6 @@ const server = http.createServer(async (req, res) => {
     isLoginRunning = true;
     console.log('\n[Bridge] 🌐 Starting Instagram login session recorder...');
 
-    // Run login asynchronously
     recordInstagramLogin((msg) => {
       console.log(`[Bridge Login] ${msg}`);
     })
@@ -113,7 +292,7 @@ const server = http.createServer(async (req, res) => {
   }
 
   // --------------------------------------------------------------------------
-  // 3. POST /publish - Run Playwright automated carousel publication
+  // 6. POST /publish - Run Immediate Playwright automated carousel publication
   // --------------------------------------------------------------------------
   if (req.method === 'POST' && pathname === '/publish') {
     if (isPublishRunning) {
@@ -127,10 +306,7 @@ const server = http.createServer(async (req, res) => {
     let rawBody = '';
     req.on('data', (chunk) => {
       rawBody += chunk;
-      // Safeguard against gigantic payloads (>50MB)
-      if (rawBody.length > 50 * 1024 * 1024) {
-        req.destroy();
-      }
+      if (rawBody.length > 50 * 1024 * 1024) req.destroy();
     });
 
     req.on('end', async () => {
@@ -144,9 +320,8 @@ const server = http.createServer(async (req, res) => {
         }
 
         isPublishRunning = true;
-        console.log(`\n[Bridge Publish] 🚀 Received publish request for ${slides.length} slide(s)...`);
+        console.log(`\n[Bridge Publish] 🚀 Received immediate publish request for ${slides.length} slide(s)...`);
 
-        // Check velocity
         const velocity = checkVelocityStatus();
         if (!velocity.hasAuthSession) {
           isPublishRunning = false;
@@ -166,7 +341,6 @@ const server = http.createServer(async (req, res) => {
           return;
         }
 
-        // Save base64 slides to temp directory
         const tempDir = path.resolve(process.cwd(), '.temp-instagram-uploads', `bridge-post-${Date.now()}`);
         fs.mkdirSync(tempDir, { recursive: true });
 
@@ -194,7 +368,6 @@ const server = http.createServer(async (req, res) => {
           onProgress: handleProgress,
         });
 
-        // Clean up temporary image files
         try {
           fs.rmSync(tempDir, { recursive: true, force: true });
         } catch {}
@@ -220,7 +393,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Not found
+  // 404
   sendJson(res, 404, { success: false, error: 'Endpoint not found' });
 });
 
@@ -228,17 +401,18 @@ const server = http.createServer(async (req, res) => {
 server.listen(PORT, HOST, () => {
   ensureStorageDir();
   const velocity = checkVelocityStatus();
+  const scheduled = getScheduledPosts().filter((p) => p.status === 'scheduled');
 
   console.log('======================================================================');
-  console.log('  ⚡ SYNERGY LOCAL COMPANION BRIDGE v1.0');
+  console.log('  ⚡ SYNERGY LOCAL COMPANION BRIDGE & SCHEDULER v1.2');
   console.log('======================================================================');
   console.log(`  Bridge Endpoint:     http://${HOST}:${PORT}`);
   console.log('  Residential IP Mode: 🟢 ACTIVE (Zero Datacenter Shadowbans)');
   console.log(`  Instagram Session:   ${velocity.hasAuthSession ? '🟢 AUTHENTICATED (auth.json ready)' : '⚠️ NOT LOGGED IN (Needs Login)'}`);
   console.log(`  Anti-Flag Velocity:  ${velocity.postsCountToday} / ${velocity.maxDaily} posts used today`);
+  console.log(`  Scheduled Queue:     ${scheduled.length} post(s) queued in calendar`);
   console.log('----------------------------------------------------------------------');
-  console.log('  Listening for dispatch triggers from your Synergy Web Studio...');
+  console.log('  Listening for dispatch triggers & running automated schedule queue...');
   console.log('  Keep this terminal open while publishing from your browser.');
   console.log('======================================================================\n');
 });
-

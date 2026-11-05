@@ -385,6 +385,41 @@ export default function TemplatesPage() {
     setIsScheduling(true);
     setTopbarLoading(true);
 
+    const postId = `post-${Date.now()}`;
+    const scheduledIso = immediate ? new Date().toISOString() : new Date(publishDate).toISOString();
+
+    // If Instagram is targeted and slides are compiled, also queue to residential schedule engine
+    if (publishPlatforms.includes('instagram') && compiledImages.length > 0) {
+      try {
+        fetch('/api/instagram/schedule', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: postId,
+            title: `Template: ${currentTemplate.name} Carousel`,
+            slides: compiledImages,
+            caption: publishCaption,
+            scheduledFor: scheduledIso,
+            platforms: publishPlatforms,
+          }),
+        }).catch(() => {});
+
+        // Forward to companion bridge if online
+        fetch('http://127.0.0.1:4545/schedule', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: postId,
+            title: `Template: ${currentTemplate.name} Carousel`,
+            slides: compiledImages,
+            caption: publishCaption,
+            scheduledFor: scheduledIso,
+            platforms: publishPlatforms,
+          }),
+        }).catch(() => {});
+      } catch {}
+    }
+
     setTimeout(() => {
       setIsScheduling(false);
       setTopbarLoading(false);
@@ -393,17 +428,18 @@ export default function TemplatesPage() {
         const key = `synergy_scheduled_posts_${business?.id || 'biz-crosstech'}`;
         const existing = JSON.parse(localStorage.getItem(key) || '[]');
         const newPost = {
-          id: `post-${Date.now()}`,
+          id: postId,
           title: `Template: ${currentTemplate.name} Carousel`,
           caption: publishCaption,
           platforms: publishPlatforms,
-          scheduledFor: immediate ? new Date().toISOString() : publishDate,
+          scheduledFor: scheduledIso,
           status: immediate ? 'published' : 'scheduled',
           slideCount: compiledImages.length || templateSlides.length,
           previewUrl: compiledImages[0] || null,
+          slides: compiledImages,
           createdAt: new Date().toISOString(),
         };
-        localStorage.setItem(key, JSON.stringify([newPost, ...existing]));
+        localStorage.setItem(key, JSON.stringify([newPost, ...existing.filter((p: any) => p.id !== postId)]));
       }
 
       setPublishSuccessMsg(

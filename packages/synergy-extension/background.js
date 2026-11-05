@@ -100,13 +100,32 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 
-  // 4. Relay Progress from Instagram Tab -> Synergy Web Tab
+  // 4. Schedule Post via Chrome Alarms (Precision Timing)
+  if (request.action === 'SCHEDULE_POST') {
+    const post = request.payload || {};
+    const when = new Date(post.scheduledFor).getTime();
+
+    // Store post in extension local storage
+    chrome.storage.local.get(['scheduledPosts'], (res) => {
+      const posts = res.scheduledPosts || [];
+      posts.push(post);
+      chrome.storage.local.set({ scheduledPosts: posts }, () => {
+        // Create precision alarm
+        chrome.alarms.create(post.id, { when });
+        notifySynergyTab(`📅 Scheduled post alarm registered for ${new Date(when).toLocaleString()}`);
+        sendResponse({ success: true, message: `Alarm created for ${new Date(when).toLocaleString()}` });
+      });
+    });
+    return true;
+  }
+
+  // 5. Relay Progress from Instagram Tab -> Synergy Web Tab
   if (request.action === 'POST_PROGRESS') {
     notifySynergyTab(request.message);
     return;
   }
 
-  // 5. Relay Completion from Instagram Tab -> Synergy Web Tab
+  // 6. Relay Completion from Instagram Tab -> Synergy Web Tab
   if (request.action === 'POST_COMPLETE') {
     if (activeSenderTabId) {
       chrome.tabs.sendMessage(activeSenderTabId, {
@@ -128,6 +147,38 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
     return;
   }
+});
+
+// Trigger post when Chrome alarm fires at the exact moment
+chrome.alarms.onAlarm.addListener((alarm) => {
+  chrome.storage.local.get(['scheduledPosts'], (res) => {
+    const posts = res.scheduledPosts || [];
+    const post = posts.find((p) => p.id === alarm.name);
+    if (!post) return;
+
+    // Launch automated post in popup window
+    chrome.windows.create(
+      {
+        url: 'https://www.instagram.com/',
+        type: 'popup',
+        width: 1100,
+        height: 850,
+        focused: true,
+      },
+      (newWindow) => {
+        const tabId = newWindow.tabs ? newWindow.tabs[0].id : null;
+        const onTabUpdated = (updatedTabId, changeInfo) => {
+          if (updatedTabId === tabId && changeInfo.status === 'complete') {
+            chrome.tabs.onUpdated.removeListener(onTabUpdated);
+            setTimeout(() => {
+              chrome.tabs.sendMessage(tabId, { action: 'EXECUTE_POST', payload: post });
+            }, 2500);
+          }
+        };
+        chrome.tabs.onUpdated.addListener(onTabUpdated);
+      }
+    );
+  });
 });
 
 function notifySynergyTab(message, isError = false) {

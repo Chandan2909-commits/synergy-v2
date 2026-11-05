@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import {
   X,
   Play,
@@ -26,7 +27,11 @@ import {
   Puzzle,
   Shield,
   ArrowRight,
+  Calendar,
+  Clock,
+  Send,
 } from 'lucide-react';
+import { useWorkspaceStore } from '@/stores/workspaceStore';
 
 interface InstagramAutomationModalProps {
   isOpen: boolean;
@@ -43,6 +48,9 @@ export function InstagramAutomationModal({
   initialCaption = '🚀 Dispatched with Synergy Autonomous AI Engine! #marketing #automation #synergy',
   onCompileRequest,
 }: InstagramAutomationModalProps) {
+  const { getCurrentBusiness } = useWorkspaceStore();
+  const business = getCurrentBusiness();
+
   const [caption, setCaption] = useState(initialCaption);
   const [status, setStatus] = useState<{
     isCloud?: boolean;
@@ -69,6 +77,31 @@ export function InstagramAutomationModal({
   const [isLoadingStatus, setIsLoadingStatus] = useState(false);
   const [isLaunchingLogin, setIsLaunchingLogin] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
+
+  // Scheduling Mode State
+  const [dispatchMode, setDispatchMode] = useState<'immediate' | 'schedule'>('immediate');
+  const [scheduledDateTime, setScheduledDateTime] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 1);
+    d.setHours(10, 0, 0, 0);
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  });
+
+  const applyTimePreset = (hoursFromNow: number) => {
+    const d = new Date(Date.now() + hoursFromNow * 3600 * 1000);
+    d.setMinutes(0, 0, 0);
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    setScheduledDateTime(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
+  };
+
+  const applySpecificPreset = (daysOffset: number, hour: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() + daysOffset);
+    d.setHours(hour, 0, 0, 0);
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    setScheduledDateTime(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
+  };
 
   // Settings
   const [isHeadless, setIsHeadless] = useState(false);
@@ -394,6 +427,144 @@ export function InstagramAutomationModal({
       setErrorMsg(
         err.message || 'Failed to reach execution runner. If using the hosted website, ensure the extension or bridge is active.'
       );
+    } finally {
+      setIsPublishing(false);
+    }
+  };
+
+  // Launch Scheduled Carousel Registration
+  const handleSchedule = async () => {
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    if (!scheduledDateTime) {
+      setErrorMsg('Please select a scheduled date and time.');
+      return;
+    }
+
+    const scheduledTimestamp = new Date(scheduledDateTime).getTime();
+    if (isNaN(scheduledTimestamp) || scheduledTimestamp <= Date.now()) {
+      setErrorMsg('Scheduled time must be in the future.');
+      return;
+    }
+
+    let slidesToPublish = compiledSlides;
+    if (slidesToPublish.length === 0 && onCompileRequest) {
+      setLogs((prev) => [...prev, '⚙️ Compiling slides to 2x Retina PNGs...']);
+      try {
+        const res = await onCompileRequest();
+        if (Array.isArray(res) && res.length > 0) {
+          slidesToPublish = res;
+        }
+      } catch (err: any) {
+        setErrorMsg('Failed to compile slides: ' + err.message);
+        return;
+      }
+    }
+
+    if (!slidesToPublish || slidesToPublish.length === 0) {
+      setErrorMsg('No slide images found. Please compile slides first.');
+      return;
+    }
+
+    setIsPublishing(true);
+    const postId = `sched-ig-${Date.now()}`;
+    const scheduledIso = new Date(scheduledDateTime).toISOString();
+    const postTitle = `Instagram Carousel (${slidesToPublish.length} slides)`;
+
+    setLogs((prev) => [
+      ...prev,
+      `📅 Registering scheduled Instagram carousel for ${new Date(scheduledIso).toLocaleString()}...`,
+    ]);
+
+    try {
+      // 1. Post to Server/API route
+      const apiRes = await fetch('/api/instagram/schedule', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: postId,
+          title: postTitle,
+          slides: slidesToPublish,
+          caption,
+          scheduledFor: scheduledIso,
+          platforms: ['instagram'],
+        }),
+      });
+      const apiData = await apiRes.json();
+      if (!apiData.success) {
+        console.warn('[Schedule API notice]', apiData.error);
+      }
+
+      // 2. If Bridge is connected, forward to bridge scheduler
+      if (bridgeConnected) {
+        try {
+          await fetch('http://127.0.0.1:4545/schedule', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: postId,
+              title: postTitle,
+              slides: slidesToPublish,
+              caption,
+              scheduledFor: scheduledIso,
+              platforms: ['instagram'],
+            }),
+          });
+          setLogs((prev) => [...prev, '⚡ Queued to Local Companion Bridge 10s worker.']);
+        } catch (bridgeErr) {
+          console.warn('Bridge schedule failed:', bridgeErr);
+        }
+      }
+
+      // 3. Save to localStorage for instant calendar sync
+      if (typeof window !== 'undefined') {
+        const key = `synergy_scheduled_posts_${business?.id || 'biz-crosstech'}`;
+        const existing = JSON.parse(localStorage.getItem(key) || '[]');
+        const newPost = {
+          id: postId,
+          title: postTitle,
+          caption,
+          platforms: ['instagram'],
+          scheduledFor: scheduledIso,
+          status: 'scheduled',
+          slideCount: slidesToPublish.length,
+          previewUrl: slidesToPublish[0] || null,
+          slides: slidesToPublish,
+          createdAt: new Date().toISOString(),
+        };
+        localStorage.setItem(key, JSON.stringify([newPost, ...existing.filter((p: any) => p.id !== postId)]));
+      }
+
+      // 4. If Extension is available, register precision Chrome Alarm
+      if (extensionDetected || activeMode === 'extension') {
+        window.postMessage(
+          {
+            source: 'SYNERGY_WEB_STUDIO',
+            type: 'SCHEDULE_POST',
+            payload: {
+              id: postId,
+              title: postTitle,
+              slides: slidesToPublish,
+              caption,
+              scheduledFor: scheduledIso,
+              stealthMode: isStealth,
+            },
+          },
+          '*'
+        );
+        setLogs((prev) => [...prev, '⏰ Registered precision alarm in Synergy Extension background worker.']);
+      }
+
+      setLogs((prev) => [
+        ...prev,
+        `🎉 Successfully scheduled! The automation will automatically trigger at ${new Date(scheduledIso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} and run one-by-one.`,
+      ]);
+      setSuccessMsg(
+        `🎉 Carousel scheduled for ${new Date(scheduledIso).toLocaleString()}! You can view and manage it on your Content Calendar.`
+      );
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Failed to schedule post.');
     } finally {
       setIsPublishing(false);
     }
@@ -765,6 +936,109 @@ export function InstagramAutomationModal({
           </span>
         </div>
 
+        {/* Timing Mode: Immediate vs Scheduled */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-neutral-800 uppercase tracking-wider flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-purple-600" />
+              <span>Dispatch Timing</span>
+            </span>
+            <span className="text-[11px] font-semibold text-slate-500">
+              {dispatchMode === 'immediate' ? 'Trigger Right Now' : 'Precision Automated Queue'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1 rounded-xl border border-slate-200">
+            <button
+              type="button"
+              onClick={() => setDispatchMode('immediate')}
+              className={`py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                dispatchMode === 'immediate'
+                  ? 'bg-white text-neutral-900 shadow-sm border border-slate-200'
+                  : 'text-slate-600 hover:text-neutral-900'
+              }`}
+            >
+              <Play className="w-3.5 h-3.5 text-purple-600 fill-current" />
+              <span>⚡ Publish Immediately</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setDispatchMode('schedule')}
+              className={`py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+                dispatchMode === 'schedule'
+                  ? 'bg-purple-600 text-white shadow-sm'
+                  : 'text-slate-600 hover:text-neutral-900'
+              }`}
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              <span>📅 Schedule for Later</span>
+            </button>
+          </div>
+
+          {dispatchMode === 'schedule' && (
+            <div className="p-3.5 bg-purple-50/70 border border-purple-200 rounded-xl space-y-3 animate-fade-in">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-purple-950 uppercase tracking-wider flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-purple-600" />
+                  <span>Choose Date &amp; Execution Time</span>
+                </label>
+                <span className="text-[10px] font-mono font-bold bg-purple-200 text-purple-900 px-2 py-0.5 rounded-full">
+                  Precision Queue
+                </span>
+              </div>
+
+              <div>
+                <input
+                  type="datetime-local"
+                  value={scheduledDateTime}
+                  onChange={(e) => setScheduledDateTime(e.target.value)}
+                  disabled={isPublishing}
+                  className="w-full p-2.5 bg-white border border-purple-300 rounded-lg text-xs font-bold text-neutral-900 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-sm"
+                />
+              </div>
+
+              {/* Fast Presets */}
+              <div className="space-y-1">
+                <span className="text-[10.5px] font-semibold text-purple-900">Quick Scheduling Presets:</span>
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => applyTimePreset(2)}
+                    className="px-2.5 py-1 rounded-md bg-white hover:bg-purple-100 text-[11px] font-semibold text-purple-900 border border-purple-200 transition-colors shadow-2xs"
+                  >
+                    +2 Hours
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applySpecificPreset(0, 18)}
+                    className="px-2.5 py-1 rounded-md bg-white hover:bg-purple-100 text-[11px] font-semibold text-purple-900 border border-purple-200 transition-colors shadow-2xs"
+                  >
+                    Today 6:00 PM
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applySpecificPreset(1, 10)}
+                    className="px-2.5 py-1 rounded-md bg-white hover:bg-purple-100 text-[11px] font-semibold text-purple-900 border border-purple-200 transition-colors shadow-2xs"
+                  >
+                    Tomorrow 10:00 AM
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => applySpecificPreset(1, 18)}
+                    className="px-2.5 py-1 rounded-md bg-white hover:bg-purple-100 text-[11px] font-semibold text-purple-900 border border-purple-200 transition-colors shadow-2xs"
+                  >
+                    Tomorrow 6:00 PM
+                  </button>
+                </div>
+              </div>
+
+              <p className="text-[11px] text-purple-900 leading-relaxed bg-white/80 p-2.5 rounded-lg border border-purple-100 shadow-2xs">
+                🛡️ <strong>Exact-Moment Queue:</strong> You can schedule multiple posts for the same day at different times. When each moment arrives, Synergy triggers the residential automation and executes them <strong>one-by-one</strong> to guarantee zero browser conflicts or rate limit flags.
+              </p>
+            </div>
+          )}
+        </div>
+
         {/* Caption Editor */}
         <div className="space-y-1.5">
           <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider">
@@ -866,9 +1140,21 @@ export function InstagramAutomationModal({
 
         {/* Success Feedback */}
         {successMsg && (
-          <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-semibold flex items-center gap-2 animate-fade-in">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>{successMsg}</span>
+          <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs font-semibold flex items-center justify-between gap-3 animate-fade-in">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>{successMsg}</span>
+            </div>
+            {dispatchMode === 'schedule' && (
+              <Link
+                href="/calendar"
+                onClick={onClose}
+                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold rounded-lg shrink-0 flex items-center gap-1 transition-colors shadow-xs"
+              >
+                <Calendar className="w-3.5 h-3.5" />
+                <span>View Calendar</span>
+              </Link>
+            )}
           </div>
         )}
 
@@ -885,22 +1171,31 @@ export function InstagramAutomationModal({
 
           <button
             type="button"
-            onClick={handlePublish}
+            onClick={dispatchMode === 'schedule' ? handleSchedule : handlePublish}
             disabled={
               isPublishing ||
-              (activeMode === 'extension' && !isExtensionReady && !extensionDetected) ||
-              (activeMode === 'bridge' && !bridgeConnected && Boolean(status?.isCloud))
+              (dispatchMode === 'immediate' && activeMode === 'extension' && !isExtensionReady && !extensionDetected) ||
+              (dispatchMode === 'immediate' && activeMode === 'bridge' && !bridgeConnected && Boolean(status?.isCloud))
             }
             className="btn btn-primary text-xs flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 via-rose-600 to-amber-600 hover:from-purple-500 hover:to-amber-500 text-white font-bold shadow-md disabled:opacity-50"
           >
-            <Play className={`w-3.5 h-3.5 fill-current ${isPublishing ? 'animate-spin' : ''}`} />
-            <span>
-              {isPublishing
-                ? 'Publishing to Instagram...'
-                : activeMode === 'extension' && !isExtensionReady && !extensionDetected
-                ? 'Install & Verify Extension'
-                : '⚡ Launch Instagram Post'}
-            </span>
+            {dispatchMode === 'schedule' ? (
+              <>
+                <Calendar className={`w-3.5 h-3.5 ${isPublishing ? 'animate-spin' : ''}`} />
+                <span>{isPublishing ? 'Scheduling Carousel...' : '📅 Schedule Instagram Carousel'}</span>
+              </>
+            ) : (
+              <>
+                <Play className={`w-3.5 h-3.5 fill-current ${isPublishing ? 'animate-spin' : ''}`} />
+                <span>
+                  {isPublishing
+                    ? 'Publishing to Instagram...'
+                    : activeMode === 'extension' && !isExtensionReady && !extensionDetected
+                    ? 'Install & Verify Extension'
+                    : '⚡ Launch Instagram Post'}
+                </span>
+              </>
+            )}
           </button>
         </div>
       </div>

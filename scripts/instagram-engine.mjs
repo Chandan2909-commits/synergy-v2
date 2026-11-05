@@ -31,6 +31,7 @@ const STORAGE_DIR = isServerless
   : path.resolve(process.cwd(), 'storage', 'instagram');
 const AUTH_FILE = path.join(STORAGE_DIR, 'auth.json');
 const LOG_FILE = path.join(STORAGE_DIR, 'velocity-log.json');
+const SCHEDULE_FILE = path.join(STORAGE_DIR, 'scheduled-posts.json');
 
 // Ensure directory exists safely
 export function ensureStorageDir() {
@@ -41,6 +42,57 @@ export function ensureStorageDir() {
   } catch {
     // Graceful fallback for read-only environments
   }
+}
+
+// ==============================================================================
+// SCHEDULED POSTS QUEUE HELPERS
+// ==============================================================================
+
+export function getScheduledPosts() {
+  ensureStorageDir();
+  if (!fs.existsSync(SCHEDULE_FILE)) {
+    return [];
+  }
+  try {
+    return JSON.parse(fs.readFileSync(SCHEDULE_FILE, 'utf8'));
+  } catch {
+    return [];
+  }
+}
+
+export function saveScheduledPosts(posts) {
+  ensureStorageDir();
+  try {
+    fs.writeFileSync(SCHEDULE_FILE, JSON.stringify(posts, null, 2), 'utf8');
+  } catch (err) {
+    console.error('Failed to save scheduled posts:', err.message);
+  }
+}
+
+export function addScheduledPost(post) {
+  const posts = getScheduledPosts();
+  const filtered = posts.filter((p) => p.id !== post.id);
+  filtered.push(post);
+  saveScheduledPosts(filtered);
+  return post;
+}
+
+export function updateScheduledPost(id, updates) {
+  const posts = getScheduledPosts();
+  const idx = posts.findIndex((p) => p.id === id);
+  if (idx !== -1) {
+    posts[idx] = { ...posts[idx], ...updates };
+    saveScheduledPosts(posts);
+    return posts[idx];
+  }
+  return null;
+}
+
+export function removeScheduledPost(id) {
+  const posts = getScheduledPosts();
+  const filtered = posts.filter((p) => p.id !== id);
+  saveScheduledPosts(filtered);
+  return true;
 }
 
 // Random delay helper
