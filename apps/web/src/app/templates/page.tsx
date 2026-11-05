@@ -25,6 +25,7 @@ import {
   Sliders,
   CheckCircle2,
   Smartphone,
+  RotateCcw,
 } from 'lucide-react';
 import { SignatureHeroCard } from '@/components/hero/SignatureHeroCard';
 import { InstagramAutomationModal } from '@/components/instagram/InstagramAutomationModal';
@@ -378,6 +379,35 @@ export default function TemplatesPage() {
         a.click();
       }, i * 250);
     });
+  };
+
+  // AI Caption Refinement State
+  const [isRefiningCaption, setIsRefiningCaption] = useState(false);
+  const [previousPublishCaption, setPreviousPublishCaption] = useState<string | null>(null);
+  const [captionAgentBadge, setCaptionAgentBadge] = useState<string | null>(null);
+
+  const handleRefinePublishCaption = async (style: string = 'smart') => {
+    setIsRefiningCaption(true);
+    setPreviousPublishCaption(publishCaption);
+
+    try {
+      const res = await fetch('/api/ai/refine-caption', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          caption: publishCaption,
+          style,
+          brandName: business?.name || 'Synergy',
+        }),
+      });
+      const data = await res.json();
+      if (data.success && data.refinedCaption) {
+        setPublishCaption(data.refinedCaption);
+        setCaptionAgentBadge(data.agent || 'Content Writer');
+      }
+    } catch {} finally {
+      setIsRefiningCaption(false);
+    }
   };
 
   // Dispatch / Schedule Post
@@ -1313,13 +1343,54 @@ export default function TemplatesPage() {
                 </div>
               </div>
 
-              {/* Caption */}
-              <div>
-                <label className="settings-label">Post Caption / Accompanying Copy</label>
+              {/* Caption with AI Writing Agent Refiner */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <label className="settings-label mb-0">Post Caption / Accompanying Copy</label>
+                    {previousPublishCaption && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setPublishCaption(previousPublishCaption);
+                          setPreviousPublishCaption(null);
+                          setCaptionAgentBadge(null);
+                        }}
+                        className="text-[10px] font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-1 transition-colors px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200"
+                        title="Revert back to previous caption draft"
+                      >
+                        <RotateCcw className="w-2.5 h-2.5" />
+                        <span>Undo</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => handleRefinePublishCaption('smart')}
+                    disabled={isRefiningCaption}
+                    className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-[11px] font-bold flex items-center gap-1.5 shadow-xs transition-all hover:scale-[1.02] disabled:opacity-50"
+                    title="Refine caption using Content Writer Agent"
+                  >
+                    <Sparkles className={`w-3 h-3 text-amber-300 ${isRefiningCaption ? 'animate-spin' : ''}`} />
+                    <span>{isRefiningCaption ? 'Refining...' : '✨ Fix with AI'}</span>
+                  </button>
+                </div>
+
+                {captionAgentBadge && (
+                  <div className="flex items-center justify-between px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-900 animate-fade-in">
+                    <div className="flex items-center gap-1.5">
+                      <Sparkles className="w-3 h-3 text-emerald-600" />
+                      <span>Refined by <strong>{captionAgentBadge}</strong></span>
+                    </div>
+                  </div>
+                )}
+
                 <textarea
                   rows={4}
                   value={publishCaption}
                   onChange={(e) => setPublishCaption(e.target.value)}
+                  disabled={isRefiningCaption}
                   className="settings-input !bg-white leading-relaxed"
                   placeholder="Enter the post caption or thread introduction..."
                 />

@@ -30,6 +30,7 @@ import {
   Calendar,
   Clock,
   Send,
+  RotateCcw,
 } from 'lucide-react';
 import { useWorkspaceStore } from '@/stores/workspaceStore';
 
@@ -101,6 +102,67 @@ export function InstagramAutomationModal({
     d.setHours(hour, 0, 0, 0);
     const pad = (n: number) => n.toString().padStart(2, '0');
     setScheduledDateTime(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`);
+  };
+
+  // AI Caption Refinement State
+  const [isRefiningCaption, setIsRefiningCaption] = useState(false);
+  const [refinedAgentBadge, setRefinedAgentBadge] = useState<string | null>(null);
+  const [previousCaption, setPreviousCaption] = useState<string | null>(null);
+
+  const handleRefineCaption = async (style: 'smart' | 'punchy' | 'b2b' | 'hashtags' = 'smart') => {
+    setIsRefiningCaption(true);
+    setErrorMsg(null);
+    setPreviousCaption(caption);
+
+    let writerApiKey: string | undefined;
+    let writerProvider: string = 'gemini';
+    let writerModel: string = 'gemini-1.5-flash';
+
+    if (typeof window !== 'undefined') {
+      try {
+        const savedPersonas = localStorage.getItem(`synergy_personas_${business?.id || 'biz-crosstech'}`);
+        if (savedPersonas) {
+          const parsed = JSON.parse(savedPersonas);
+          const writer = parsed.find((p: any) => p.role === 'content_writer');
+          if (writer) {
+            writerApiKey = writer.apiKey;
+            writerProvider = writer.provider || 'gemini';
+            writerModel = writer.model || 'gemini-1.5-flash';
+          }
+        }
+      } catch {}
+    }
+
+    try {
+      const res = await fetch('/api/ai/refine-caption', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          caption,
+          style,
+          brandName: business?.name || 'Synergy',
+          apiKey: writerApiKey,
+          provider: writerProvider,
+          model: writerModel,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success && data.refinedCaption) {
+        setCaption(data.refinedCaption);
+        setRefinedAgentBadge(data.agent || 'Content Writer Agent');
+        setLogs((prev) => [
+          ...prev,
+          `✨ Caption refined with AI Writing Agent (${data.agent || 'Content Writer'}).`,
+        ]);
+      } else {
+        setErrorMsg(data.error || 'Failed to refine caption with AI');
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || 'Error communicating with AI Writing Agent');
+    } finally {
+      setIsRefiningCaption(false);
+    }
   };
 
   // Settings
@@ -1039,17 +1101,99 @@ export function InstagramAutomationModal({
           )}
         </div>
 
-        {/* Caption Editor */}
-        <div className="space-y-1.5">
-          <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider">
-            Instagram Caption &amp; Hashtags
-          </label>
+        {/* Caption Editor with AI Writing Agent Refiner */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <label className="block text-xs font-bold text-neutral-700 uppercase tracking-wider">
+                Instagram Caption &amp; Hashtags
+              </label>
+              {previousCaption && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCaption(previousCaption);
+                    setPreviousCaption(null);
+                    setRefinedAgentBadge(null);
+                  }}
+                  className="text-[10px] font-semibold text-slate-500 hover:text-slate-800 flex items-center gap-1 transition-colors px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200"
+                  title="Revert back to your previous caption draft"
+                >
+                  <RotateCcw className="w-2.5 h-2.5" />
+                  <span>Undo</span>
+                </button>
+              )}
+            </div>
+
+            {/* ✨ Fix with AI Writing Agent Button */}
+            <button
+              type="button"
+              onClick={() => handleRefineCaption('smart')}
+              disabled={isRefiningCaption || isPublishing}
+              className="px-2.5 py-1 rounded-lg bg-gradient-to-r from-purple-600 via-indigo-600 to-rose-600 hover:from-purple-500 hover:to-rose-500 text-white text-[11px] font-bold flex items-center gap-1.5 shadow-xs transition-all hover:scale-[1.02] disabled:opacity-50"
+              title="Refine hook, format line breaks, add CTA and hashtags using the Content Writer Agent"
+            >
+              <Sparkles className={`w-3 h-3 text-amber-300 ${isRefiningCaption ? 'animate-spin' : ''}`} />
+              <span>{isRefiningCaption ? 'Refining with Agent...' : '✨ Fix with AI'}</span>
+            </button>
+          </div>
+
+          {/* Style Presets for AI Writing Agent */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+            <span className="text-[10px] text-slate-400 font-semibold shrink-0">Writing Tone:</span>
+            <button
+              type="button"
+              onClick={() => handleRefineCaption('smart')}
+              disabled={isRefiningCaption || isPublishing}
+              className="px-2 py-0.5 rounded-md text-[10.5px] font-semibold bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 transition-colors shrink-0"
+            >
+              ⚡ Smart High-Converting
+            </button>
+            <button
+              type="button"
+              onClick={() => handleRefineCaption('punchy')}
+              disabled={isRefiningCaption || isPublishing}
+              className="px-2 py-0.5 rounded-md text-[10.5px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 transition-colors shrink-0"
+            >
+              🎯 Punchy Hook &amp; CTA
+            </button>
+            <button
+              type="button"
+              onClick={() => handleRefineCaption('b2b')}
+              disabled={isRefiningCaption || isPublishing}
+              className="px-2 py-0.5 rounded-md text-[10.5px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 transition-colors shrink-0"
+            >
+              👔 Executive B2B
+            </button>
+            <button
+              type="button"
+              onClick={() => handleRefineCaption('hashtags')}
+              disabled={isRefiningCaption || isPublishing}
+              className="px-2 py-0.5 rounded-md text-[10.5px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200 transition-colors shrink-0"
+            >
+              #️⃣ Boost Hashtags
+            </button>
+          </div>
+
+          {/* Refined Badge */}
+          {refinedAgentBadge && (
+            <div className="flex items-center justify-between px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-[11px] text-emerald-900 animate-fade-in">
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span>Refined by <strong>{refinedAgentBadge}</strong></span>
+              </div>
+              <span className="text-[10px] font-mono font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.2 rounded">
+                Optimized Hook &amp; Spacing
+              </span>
+            </div>
+          )}
+
           <textarea
-            rows={4}
+            rows={5}
             value={caption}
             onChange={(e) => setCaption(e.target.value)}
-            disabled={isPublishing}
-            className="w-full p-3 bg-white border border-slate-300 rounded-xl text-xs font-medium text-neutral-900 focus:border-purple-600 focus:ring-2 focus:ring-purple-500/20 outline-none leading-relaxed shadow-sm"
+            disabled={isPublishing || isRefiningCaption}
+            className="w-full p-3 bg-white border border-slate-300 rounded-xl text-xs font-medium text-neutral-900 focus:border-purple-600 focus:ring-2 focus:ring-purple-500/20 outline-none leading-relaxed shadow-sm disabled:bg-slate-50"
             placeholder="Write your Instagram caption..."
           />
         </div>
