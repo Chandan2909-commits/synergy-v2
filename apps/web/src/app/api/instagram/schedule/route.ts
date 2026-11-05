@@ -110,3 +110,27 @@ export async function DELETE(req: Request) {
     );
   }
 }
+
+export async function PATCH(req: Request) {
+  try {
+    const body = await req.json();
+    const { id, status, error } = body;
+
+    if (!id) {
+      return NextResponse.json({ success: false, error: 'Post ID is required' }, { status: 400 });
+    }
+
+    const updated = updateScheduledPost(id, {
+      status,
+      error: error || undefined,
+      publishedAt: status === 'published' ? new Date().toISOString() : undefined,
+    });
+
+    return NextResponse.json({ success: true, post: updated });
+  } catch (err: any) {
+    return NextResponse.json(
+      { success: false, error: err.message || 'Failed to update scheduled post' },
+      { status: 500 }
+    );
+  }
+}

@@ -25,6 +25,24 @@ function dataURLtoFile(dataurl, filename) {
   return new File([u8arr], filename, { type: mime });
 }
 
+// Close any accidental direct-message Share popup if it appears
+function closeAnyDmShareModal() {
+  const searchInputs = Array.from(document.querySelectorAll('input[placeholder*="Search" i]'));
+  for (const inp of searchInputs) {
+    const modal = inp.closest('div[role="dialog"]');
+    if (modal) {
+      const closeBtn =
+        modal.querySelector('svg[aria-label="Close"], svg[aria-label="Back"]')?.closest('button, div[role="button"]') ||
+        modal.querySelector('button, div[role="button"]');
+      if (closeBtn) {
+        closeBtn.click();
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 chrome.runtime.onMessage.addListener(async (request) => {
   if (request.action !== 'EXECUTE_POST') return;
 
@@ -58,12 +76,12 @@ chrome.runtime.onMessage.addListener(async (request) => {
       Boolean(document.querySelector('input[name="username"]'));
 
     if (isLoginPage()) {
-      sendProgress('🔑 Instagram Login Required: Please log into your account in the popup window. Handling 2FA / prompts...');
+      sendProgress('🔑 Instagram Login Required: Please log into your account in this window...');
 
       let loginAttempts = 0;
       while (isLoginPage()) {
         loginAttempts++;
-        if (loginAttempts > 180) { // Wait up to 3 minutes
+        if (loginAttempts > 180) {
           throw new Error('Login timed out. Please log into Instagram in the popup window and try again.');
         }
         await sleep(1000);
@@ -84,82 +102,84 @@ chrome.runtime.onMessage.addListener(async (request) => {
       }
     } catch {}
 
-    // ========================================================================
-    // Step 2: Click "Create" in Navigation Bar
-    // ========================================================================
-    sendProgress('[3/5] 📁 Opening Instagram Create menu...');
-
-    let createBtn = null;
-    for (let attempt = 0; attempt < 20; attempt++) {
-      createBtn = document.querySelector(
-        'svg[aria-label="New post"], svg[aria-label="Create"]'
-      )?.closest('a, button, div[role="button"]');
-
-      if (!createBtn) {
-        // Fallback: search for navigation item with text "Create"
-        const navItems = Array.from(document.querySelectorAll('a, button, div[role="button"]'));
-        createBtn = navItems.find((el) => el.textContent?.trim().toLowerCase() === 'create');
-      }
-
-      if (createBtn) break;
-      await sleep(500);
-    }
-
-    if (!createBtn) {
-      throw new Error('Could not find Instagram "Create" button. Please make sure your Instagram feed has loaded.');
-    }
-
-    createBtn.click();
-    await sleep(randomBetween(1200, 2000));
+    // Close any stray DM share popups
+    closeAnyDmShareModal();
 
     // ========================================================================
-    // Step 3: Handle Dropdown Menu (Click "Post" Option)
-    // On modern Instagram desktop, clicking "Create" opens a dropdown popover
-    // with "Post" and "Live video". We must click "Post" to mount the modal!
+    // Step 2 & 3: Open "Create" -> "Post" to mount file upload dialog
     // ========================================================================
-    const allClickables = Array.from(
-      document.querySelectorAll('div[role="menuitem"], a, button, div[role="button"], span')
-    );
-
-    const postMenuItem = allClickables.find((el) => {
-      const text = el.textContent?.trim().toLowerCase();
-      return text === 'post' && !el.closest('header') && !el.closest('form');
-    });
-
-    if (postMenuItem) {
-      sendProgress('[3/5] 📋 Selected "Post" from dropdown menu...');
-      postMenuItem.click();
-      await sleep(1500);
-    }
-
-    // ========================================================================
-    // Step 4: Locate the File Input and Feed Carousel Files
-    // ========================================================================
-    sendProgress(`[4/5] 📁 Uploading ${files.length} carousel slide(s)...`);
+    sendProgress('[3/5] 📁 Launching Instagram Create post dialog...');
 
     let fileInput = null;
-    for (let attempt = 0; attempt < 20; attempt++) {
-      fileInput = document.querySelector('input[type="file"][accept*="image"]') ||
-                  document.querySelector('input[type="file"]');
-      if (fileInput) break;
-      await sleep(500);
-    }
 
-    // If fileInput still not found, check if "Select from computer" button exists
-    if (!fileInput) {
+    // Retry loop: ensure "Create" -> "Post" menu item is clicked and fileInput is mounted
+    for (let cycle = 0; cycle < 15; cycle++) {
+      // 1. Check if file input is already present
+      fileInput =
+        document.querySelector('input[type="file"][accept*="image"]') ||
+        document.querySelector('input[type="file"]');
+      if (fileInput) break;
+
+      // 2. Check if the "Post" dropdown menu item is already visible on screen
+      const clickables = Array.from(
+        document.querySelectorAll('div[role="menuitem"], a, button, div[role="button"], span')
+      );
+      const postMenuItem = clickables.find((el) => {
+        const text = el.textContent?.trim().toLowerCase();
+        return (
+          text === 'post' &&
+          !el.closest('header') &&
+          !el.closest('form') &&
+          !el.closest('article')
+        );
+      });
+
+      if (postMenuItem) {
+        sendProgress('[3/5] 📋 Selecting "Post" from menu...');
+        postMenuItem.click();
+        await sleep(1200);
+      } else {
+        // Find and click the "Create" button in the navigation bar
+        const createBtn =
+          document.querySelector(
+            'svg[aria-label="New post"], svg[aria-label="Create"]'
+          )?.closest('a, button, div[role="button"]') ||
+          Array.from(document.querySelectorAll('a, button, div[role="button"]')).find(
+            (el) => el.textContent?.trim().toLowerCase() === 'create'
+          );
+
+        if (createBtn) {
+          createBtn.click();
+          await sleep(1000);
+        }
+      }
+
+      // Check if "Select from computer" button exists in modal
       const selectCompBtn = Array.from(document.querySelectorAll('button, div[role="button"]')).find(
         (el) => /select from computer/i.test(el.textContent || '')
       );
       if (selectCompBtn) {
         fileInput = document.querySelector('input[type="file"]');
+        if (fileInput) break;
       }
+
+      await sleep(600);
+    }
+
+    if (!fileInput) {
+      // Final attempt: check if any file input exists
+      fileInput = document.querySelector('input[type="file"]');
     }
 
     if (!fileInput) {
       throw new Error('Upload dialog did not mount file input. Please ensure popups are permitted.');
     }
 
-    // Assign files using browser DataTransfer
+    // ========================================================================
+    // Step 4: Feed Carousel Slide Files to the File Input
+    // ========================================================================
+    sendProgress(`[4/5] 📁 Uploading ${files.length} carousel slide(s)...`);
+
     const dt = new DataTransfer();
     files.forEach((file) => dt.items.add(file));
     fileInput.files = dt.files;
@@ -176,19 +196,24 @@ chrome.runtime.onMessage.addListener(async (request) => {
       for (let attempt = 0; attempt < 15; attempt++) {
         const dialogs = Array.from(document.querySelectorAll('div[role="dialog"]'));
         const createDialog =
-          dialogs.find((dlg) => dlg.textContent?.includes('Create new post')) || document;
+          dialogs.find(
+            (dlg) =>
+              dlg.textContent?.includes('Create new post') ||
+              dlg.textContent?.includes('Crop') ||
+              dlg.textContent?.includes('Filters')
+          ) || document;
+
         const dialogRect = createDialog.getBoundingClientRect ? createDialog.getBoundingClientRect() : { top: 0 };
         const buttons = Array.from(createDialog.querySelectorAll('div[role="button"], button'));
 
-        const nextBtn =
-          buttons.find((el) => {
-            const text = el.textContent?.trim().toLowerCase();
-            if (text !== 'next') return false;
-            if (el.querySelector('svg')) return false;
-            const rect = el.getBoundingClientRect();
-            const relTop = rect.top - dialogRect.top;
-            return relTop >= 0 && relTop < 150;
-          }) || buttons.find((el) => el.textContent?.trim().toLowerCase() === 'next');
+        const nextBtn = buttons.find((el) => {
+          const text = el.textContent?.trim().toLowerCase();
+          if (text !== 'next') return false;
+          if (el.querySelector('svg')) return false;
+          const rect = el.getBoundingClientRect();
+          const relTop = rect.top - dialogRect.top;
+          return relTop >= 0 && relTop < 150;
+        }) || buttons.find((el) => el.textContent?.trim().toLowerCase() === 'next' && !el.querySelector('svg'));
 
         if (nextBtn) {
           nextBtn.click();
@@ -213,7 +238,7 @@ chrome.runtime.onMessage.addListener(async (request) => {
     sendProgress('[5/5] ✍️ Simulating human typing for caption & hashtags...');
 
     let captionBox = null;
-    for (let attempt = 0; attempt < 15; attempt++) {
+    for (let attempt = 0; attempt < 20; attempt++) {
       captionBox = document.querySelector(
         'div[aria-label*="caption" i], div[contenteditable="true"], div[role="textbox"]'
       );
@@ -221,15 +246,17 @@ chrome.runtime.onMessage.addListener(async (request) => {
       await sleep(500);
     }
 
-    if (captionBox) {
-      captionBox.focus();
-      await sleep(500);
-
-      // Insert caption simulating human keystrokes
-      document.execCommand('insertText', false, caption);
-      captionBox.dispatchEvent(new Event('input', { bubbles: true }));
-      await sleep(randomBetween(1500, 3000));
+    if (!captionBox) {
+      throw new Error('Could not locate caption text area in Create Post dialog.');
     }
+
+    captionBox.focus();
+    await sleep(400);
+
+    // Insert caption simulating human keystrokes
+    document.execCommand('insertText', false, caption);
+    captionBox.dispatchEvent(new Event('input', { bubbles: true }));
+    await sleep(randomBetween(1500, 2500));
 
     // ========================================================================
     // Step 7: Click "Share" (Strictly Target Create Dialog Publish Button)
@@ -237,53 +264,73 @@ chrome.runtime.onMessage.addListener(async (request) => {
     sendProgress('[5/5] 🚀 Finalizing publication: clicking Share...');
 
     // Close any accidental DM Share popup if open
-    const dmCloseBtn = document.querySelector('svg[aria-label="Close"]')?.closest('button, div[role="button"]');
-    if (dmCloseBtn && document.querySelector('div[role="dialog"] input[placeholder*="Search" i]')) {
-      dmCloseBtn.click();
-      await sleep(1000);
+    closeAnyDmShareModal();
+    await sleep(500);
+
+    // The true Create Post modal MUST contain the captionBox
+    const createModal =
+      captionBox.closest('div[role="dialog"]') ||
+      captionBox.closest('div[tabindex="-1"]') ||
+      document.querySelector('div[role="dialog"]');
+
+    if (!createModal) {
+      throw new Error('Could not locate Create Post dialog container.');
     }
 
     let shareBtn = null;
-    for (let attempt = 0; attempt < 20; attempt++) {
-      // Find the Create new post dialog
-      const dialogs = Array.from(document.querySelectorAll('div[role="dialog"]'));
-      const createDialog =
-        dialogs.find(
-          (dlg) =>
-            dlg.textContent?.includes('Create new post') ||
-            Boolean(dlg.querySelector('div[aria-label*="caption" i], div[contenteditable="true"]'))
-        ) || document;
+    for (let attempt = 0; attempt < 25; attempt++) {
+      const modalRect = createModal.getBoundingClientRect();
+      const modalButtons = Array.from(createModal.querySelectorAll('div[role="button"], button'));
 
-      const dialogRect = createDialog.getBoundingClientRect ? createDialog.getBoundingClientRect() : { top: 0 };
-      const candidates = Array.from(createDialog.querySelectorAll('div[role="button"], button'));
+      shareBtn = modalButtons.find((el) => {
+        // Exclude the caption box itself or anything inside it
+        if (el.contains(captionBox) || captionBox.contains(el)) return false;
+        // Exclude any button containing SVG icons (feed share, close button, etc.)
+        if (el.querySelector('svg')) return false;
+        // Exclude any button containing input elements
+        if (el.querySelector('input')) return false;
 
-      // Find the blue Share button in the Create dialog header
-      shareBtn = candidates.find((el) => {
         const text = el.textContent?.trim().toLowerCase();
         if (text !== 'share') return false;
-        // EXCLUDE buttons containing SVG icons (the feed/DM share button has a paper airplane icon)
-        if (el.querySelector('svg')) return false;
-        // Must be in the top header row of the Create dialog (top 150px)
+
+        // Must be in the top 100px header row of the create modal
         const rect = el.getBoundingClientRect();
-        const relTop = rect.top - dialogRect.top;
-        return relTop >= 0 && relTop < 150;
+        const relTop = rect.top - modalRect.top;
+        const isHeaderRow = relTop >= 0 && relTop <= 110;
+
+        // Must be on the right half of the header
+        const isRightSide = rect.right > modalRect.left + modalRect.width * 0.5;
+
+        return isHeaderRow && isRightSide;
       });
 
-      // Fallback: any plain text button "Share" without SVG
+      // Secondary fallback within createModal only
       if (!shareBtn) {
-        shareBtn = candidates.find(
-          (el) => el.textContent?.trim().toLowerCase() === 'share' && !el.querySelector('svg')
-        );
+        shareBtn = modalButtons.find((el) => {
+          const text = el.textContent?.trim().toLowerCase();
+          return text === 'share' && !el.querySelector('svg') && !el.contains(captionBox);
+        });
       }
 
       if (shareBtn) break;
       await sleep(500);
     }
 
-    if (shareBtn) {
-      shareBtn.click();
-    } else {
+    if (!shareBtn) {
       throw new Error('Could not find the "Share" button in the Create Post header.');
+    }
+
+    // Dispatch full mouse event cycle for React
+    shareBtn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    shareBtn.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+    shareBtn.click();
+
+    // Check again if DM share sheet was accidentally opened and close it
+    await sleep(1000);
+    if (closeAnyDmShareModal()) {
+      // Re-click the header share button if DM popup intercepted
+      await sleep(500);
+      shareBtn.click();
     }
 
     // ========================================================================
@@ -291,10 +338,15 @@ chrome.runtime.onMessage.addListener(async (request) => {
     // ========================================================================
     sendProgress('⏳ Uploading carousel to Instagram servers...');
     let confirmed = false;
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < 45; i++) {
       await sleep(1500);
       const text = document.body.innerText || '';
       if (/your post has been shared/i.test(text) || /post shared/i.test(text)) {
+        confirmed = true;
+        break;
+      }
+      // If create modal disappeared and we're back on feed, post finished!
+      if (!document.body.contains(createModal)) {
         confirmed = true;
         break;
       }

@@ -155,7 +155,7 @@ export default function CalendarPage() {
     const handleExtensionMessage = (event: MessageEvent) => {
       if (!event.data || event.data.source !== 'SYNERGY_EXTENSION') return;
 
-      const { type, message, success, error } = event.data;
+      const { type, message, success, error, postId } = event.data;
 
       if (type === 'PROGRESS_UPDATE' && message) {
         setDispatchStatus(message);
@@ -164,15 +164,72 @@ export default function CalendarPage() {
       if (type === 'POST_RESULT') {
         setIsDispatchingNow(false);
         isDispatchingRef.current = false;
+        const targetPostId = postId || selectedPost?.id;
+
         if (success) {
           setDispatchStatus('🎉 Successfully published to Instagram via Extension!');
+
+          // 1. Update persistent localStorage status immediately
+          const businessId = business?.id || 'biz-crosstech';
+          const storageKey = `synergy_scheduled_posts_${businessId}`;
+          if (typeof window !== 'undefined') {
+            try {
+              const localSaved = localStorage.getItem(storageKey);
+              if (localSaved) {
+                const list = JSON.parse(localSaved);
+                if (Array.isArray(list)) {
+                  const updated = list.map((p: any) =>
+                    (!targetPostId || p.id === targetPostId || p.status === 'publishing')
+                      ? { ...p, status: 'published', publishedAt: new Date().toISOString() }
+                      : p
+                  );
+                  localStorage.setItem(storageKey, JSON.stringify(updated));
+                }
+              }
+            } catch (err) {
+              console.error('Error saving published status to localStorage:', err);
+            }
+          }
+
+          // 2. Call backend PATCH to update server-side storage
+          if (targetPostId) {
+            dispatchedPostIdsRef.current.add(targetPostId);
+            fetch('/api/instagram/schedule', {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id: targetPostId, status: 'published' }),
+            }).catch(() => {});
+          }
+
+          // 3. Immediately update in-memory React state
+          setScheduledPosts((prev) =>
+            prev.map((p) =>
+              (!targetPostId || p.id === targetPostId || p.status === 'publishing')
+                ? { ...p, status: 'published' as const, publishedAt: new Date().toISOString() }
+                : p
+            )
+          );
+
+          if (selectedPost && (!targetPostId || selectedPost.id === targetPostId)) {
+            setSelectedPost((prev) =>
+              prev
+                ? { ...prev, status: 'published', publishedAt: new Date().toISOString() }
+                : null
+            );
+          }
+
           setTimeout(() => {
             syncScheduledPosts();
             setDispatchStatus(null);
           }, 3500);
         } else {
           // If the message is just that another job is running or busy, handle gracefully
-          if (error && (error.includes('Another post job') || error.includes('BUSY'))) {
+          if (
+            error &&
+            (error.includes('Another post') ||
+              error.includes('already in progress') ||
+              error.includes('BUSY'))
+          ) {
             setDispatchStatus('⚡ Instagram post automation is actively in progress in popup window...');
             setTimeout(() => setDispatchStatus(null), 3000);
           } else {
@@ -185,7 +242,7 @@ export default function CalendarPage() {
 
     window.addEventListener('message', handleExtensionMessage);
     return () => window.removeEventListener('message', handleExtensionMessage);
-  }, [syncScheduledPosts]);
+  }, [syncScheduledPosts, business?.id, selectedPost]);
 
   // AUTOMATED DUE-POST QUEUE WATCHER (Triggers posts automatically at their exact scheduled time)
   useEffect(() => {
@@ -292,6 +349,23 @@ export default function CalendarPage() {
       setScheduledPosts(updatedList);
       if (selectedPost && selectedPost.id === post.id) {
         setSelectedPost({ ...selectedPost, status: 'publishing' });
+      }
+
+      const businessId = business?.id || 'biz-crosstech';
+      const storageKey = `synergy_scheduled_posts_${businessId}`;
+      if (typeof window !== 'undefined') {
+        try {
+          const raw = localStorage.getItem(storageKey);
+          if (raw) {
+            const list = JSON.parse(raw);
+            if (Array.isArray(list)) {
+              const updated = list.map((p: any) =>
+                p.id === post.id ? { ...p, status: 'publishing' } : p
+              );
+              localStorage.setItem(storageKey, JSON.stringify(updated));
+            }
+          }
+        } catch {}
       }
 
       // 2. If Chrome Extension is available, dispatch via Extension

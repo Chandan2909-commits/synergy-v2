@@ -1,11 +1,10 @@
 /**
  * ============================================================================
- * SYNERGY SOCIAL ASSISTANT - BACKGROUND SERVICE WORKER (v1.1.1)
+ * SYNERGY SOCIAL ASSISTANT - BACKGROUND SERVICE WORKER (v1.1.2)
  * Manages floating popup windows, cookies, alarms, and exact-moment execution.
  * ============================================================================
  */
 
-let activeSenderTabId = null;
 let activePopupWindowId = null;
 let activeInstagramTabId = null;
 let isPostingRunning = false;
@@ -31,18 +30,54 @@ chrome.windows.onRemoved.addListener((windowId) => {
 });
 
 // ============================================================================
+// SCRIPT INJECTION & DISPATCH HELPER
+// ============================================================================
+
+function deliverPostToTab(tabId, payload, onDone) {
+  notifySynergyTabs('[3/5] 📁 Instagram loaded. Preparing slide assets and launching creation dialog...');
+
+  // 1. Explicitly execute instagram-injector.js into the tab to ensure listener is active
+  chrome.scripting.executeScript(
+    {
+      target: { tabId },
+      files: ['instagram-injector.js'],
+    },
+    () => {
+      // 2. Wait 1.5s for DOM & script to mount, then dispatch EXECUTE_POST
+      setTimeout(() => {
+        chrome.tabs.sendMessage(tabId, { action: 'EXECUTE_POST', payload }, (res) => {
+          if (chrome.runtime.lastError) {
+            console.warn('[Background] First sendMessage note:', chrome.runtime.lastError.message);
+            // Retry once after 2.5 seconds
+            setTimeout(() => {
+              chrome.tabs.sendMessage(tabId, { action: 'EXECUTE_POST', payload }, (res2) => {
+                if (chrome.runtime.lastError) {
+                  console.error('[Background] Failed to send EXECUTE_POST:', chrome.runtime.lastError.message);
+                  isPostingRunning = false;
+                  currentRunningPostId = null;
+                  if (onDone) onDone(false, chrome.runtime.lastError.message);
+                }
+              });
+            }, 2500);
+          }
+        });
+      }, 1500);
+    }
+  );
+}
+
+// ============================================================================
 // CORE EXECUTION ENGINE: Launch Dedicated Popup & Post to Instagram
 // ============================================================================
 
 function executeInstagramPost(payload, onDone) {
-  // If this exact post is already running, avoid duplicate triggers
+  // If this exact post is already running, silently ignore duplicate triggers
   if (isPostingRunning) {
     if (payload.id && payload.id === currentRunningPostId) {
-      notifySynergyTab(`[Running] Post "${payload.title || 'Carousel'}" is already in progress...`);
+      console.log(`[Background] Post "${payload.title || 'Carousel'}" is already in progress.`);
       if (onDone) onDone(true, null);
       return;
     }
-    // If a different post is running, let the queue wait
     console.log('[Background] Another post is currently running. Queue will process this next cycle.');
     if (onDone) onDone(false, 'BUSY');
     return;
@@ -51,11 +86,11 @@ function executeInstagramPost(payload, onDone) {
   isPostingRunning = true;
   currentRunningPostId = payload.id || null;
 
-  // 3-Minute Watchdog Timer to prevent lock from getting stuck indefinitely
+  // 3.5-Minute Watchdog Timer to prevent lock from getting stuck indefinitely
   if (postWatchdogTimer) clearTimeout(postWatchdogTimer);
   postWatchdogTimer = setTimeout(() => {
     if (isPostingRunning) {
-      console.warn('[Background] Watchdog: Post execution exceeded 3 minutes. Releasing lock.');
+      console.warn('[Background] Watchdog: Post execution exceeded 3.5 minutes. Releasing lock.');
       isPostingRunning = false;
       currentRunningPostId = null;
       if (activePopupWindowId) {
@@ -65,11 +100,11 @@ function executeInstagramPost(payload, onDone) {
         activePopupWindowId = null;
       }
     }
-  }, 180000);
+  }, 210000);
 
-  notifySynergyTab(`[1/5] 🧩 Synergy Social Assistant initialized: "${payload.title || 'Carousel'}"...`);
+  notifySynergyTabs(`[1/5] 🧩 Synergy Social Assistant initialized: "${payload.title || 'Carousel'}"...`);
 
-  // Open Instagram in a dedicated FLOATING POPUP WINDOW (never a tab in the same window)
+  // Open Instagram in a dedicated FLOATING POPUP WINDOW
   chrome.windows.create(
     {
       url: 'https://www.instagram.com/',
@@ -89,7 +124,6 @@ function executeInstagramPost(payload, onDone) {
 
       activePopupWindowId = newWindow.id;
 
-      // Ensure valid tab ID resolution
       chrome.tabs.query({ windowId: newWindow.id }, (tabs) => {
         const tabId =
           tabs && tabs.length > 0
@@ -106,31 +140,39 @@ function executeInstagramPost(payload, onDone) {
         }
 
         activeInstagramTabId = tabId;
-        notifySynergyTab('[2/5] 🌐 Launched Instagram popup window with your residential session...');
+        notifySynergyTabs('[2/5] 🌐 Launched Instagram popup window with your residential session...');
 
-        // Wait for page to finish loading before injecting post routine
-        const onTabUpdated = (updatedTabId, changeInfo) => {
-          if (updatedTabId === tabId && changeInfo.status === 'complete') {
-            chrome.tabs.onUpdated.removeListener(onTabUpdated);
+        // Inspect tab status immediately to avoid missed onUpdated race condition
+        chrome.tabs.get(tabId, (tab) => {
+          let delivered = false;
 
-            notifySynergyTab('[3/5] 📁 Instagram loaded. Preparing slide assets and launching creation dialog...');
+          const triggerDelivery = () => {
+            if (delivered) return;
+            delivered = true;
+            try {
+              chrome.tabs.onUpdated.removeListener(onTabUpdated);
+            } catch {}
+            deliverPostToTab(tabId, payload, onDone);
+          };
 
-            // Wait 2.5s for React DOM on instagram.com to settle
-            setTimeout(() => {
-              chrome.tabs.sendMessage(
-                tabId,
-                { action: 'EXECUTE_POST', payload },
-                (res) => {
-                  if (chrome.runtime.lastError) {
-                    notifySynergyTab(`⚠️ Script Injection Note: ${chrome.runtime.lastError.message}`);
-                  }
-                }
-              );
-            }, 2500);
+          // If tab is already completed (cached / fast load), deliver immediately!
+          if (tab && tab.status === 'complete') {
+            console.log('[Background] Tab already complete. Triggering delivery immediately.');
+            setTimeout(triggerDelivery, 2000);
+            return;
           }
-        };
 
-        chrome.tabs.onUpdated.addListener(onTabUpdated);
+          const onTabUpdated = (updatedTabId, changeInfo) => {
+            if (updatedTabId === tabId && changeInfo.status === 'complete') {
+              triggerDelivery();
+            }
+          };
+
+          chrome.tabs.onUpdated.addListener(onTabUpdated);
+
+          // Safety fallback: if onUpdated was dropped, deliver after 5 seconds
+          setTimeout(triggerDelivery, 5000);
+        });
       });
     }
   );
@@ -196,7 +238,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       sendResponse({
         success: true,
         installed: true,
-        version: '1.1.1',
+        version: '1.1.2',
         hasInstagramSession,
         origin: 'Chrome Extension Service Worker',
       });
@@ -206,8 +248,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   // 2. Open Dedicated Instagram Popup Window for Login / Verification
   if (request.action === 'OPEN_LOGIN_WINDOW') {
-    activeSenderTabId = sender.tab ? sender.tab.id : null;
-
     chrome.windows.create(
       {
         url: 'https://www.instagram.com/',
@@ -219,7 +259,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       },
       (newWindow) => {
         activePopupWindowId = newWindow.id;
-        notifySynergyTab('🌐 Instagram popup window opened. Please log in or verify your account.');
+        notifySynergyTabs('🌐 Instagram popup window opened. Please log in or verify your account.');
         sendResponse({ success: true, windowId: newWindow.id });
       }
     );
@@ -228,10 +268,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   // 3. Start Automated Post Immediately via Floating Popup Window
   if (request.action === 'START_INSTAGRAM_POST') {
-    activeSenderTabId = sender.tab ? sender.tab.id : null;
     executeInstagramPost(request.payload || {}, (success, errorMsg) => {
       if (!success && errorMsg !== 'BUSY') {
-        notifySynergyTab(`❌ Error: ${errorMsg}`, true);
+        notifySynergyTabs(`❌ Error: ${errorMsg}`, true);
       }
     });
     sendResponse({ success: true, message: 'Instagram post job dispatched to popup window' });
@@ -254,7 +293,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           chrome.alarms.create(post.id, { when });
         } catch (e) {}
 
-        notifySynergyTab(`📅 Scheduled post alarm registered for ${new Date(when).toLocaleString()}`);
+        notifySynergyTabs(`📅 Scheduled post alarm registered for ${new Date(when).toLocaleString()}`);
         sendResponse({ success: true, message: `Alarm created for ${new Date(when).toLocaleString()}` });
 
         // Trigger queue check immediately in case scheduled time is right now
@@ -266,7 +305,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   // 5. Relay Progress from Instagram Tab -> Synergy Web Tab
   if (request.action === 'POST_PROGRESS') {
-    notifySynergyTab(request.message);
+    notifySynergyTabs(request.message);
     return;
   }
 
@@ -278,30 +317,34 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       postWatchdogTimer = null;
     }
 
+    const finishedPostId = currentRunningPostId;
+    currentRunningPostId = null;
+
     // Update scheduled post status in local extension storage
-    if (currentRunningPostId) {
-      const pid = currentRunningPostId;
+    if (finishedPostId) {
       chrome.storage.local.get(['scheduledPosts'], (res) => {
         const posts = res.scheduledPosts || [];
-        const idx = posts.findIndex((p) => p.id === pid);
+        const idx = posts.findIndex((p) => p.id === finishedPostId);
         if (idx !== -1) {
           posts[idx].status = request.success ? 'published' : 'failed';
           posts[idx].publishedAt = new Date().toISOString();
           chrome.storage.local.set({ scheduledPosts: posts });
         }
       });
-      currentRunningPostId = null;
     }
 
-    if (activeSenderTabId) {
-      chrome.tabs.sendMessage(activeSenderTabId, {
-        target: 'SYNERGY_WEB_STUDIO',
+    // Broadcast completion to all open Synergy Web tabs
+    notifySynergyTabs(
+      request.success ? '🎉 Post published successfully to Instagram!' : `❌ ${request.error}`,
+      !request.success,
+      {
         type: 'POST_RESULT',
+        postId: finishedPostId,
         success: request.success,
         error: request.error,
         result: request.result,
-      });
-    }
+      }
+    );
 
     // Automatically close the popup window after successful completion
     if (request.success && activePopupWindowId) {
@@ -315,13 +358,26 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 });
 
-function notifySynergyTab(message, isError = false) {
-  if (!activeSenderTabId) return;
-  chrome.tabs.sendMessage(activeSenderTabId, {
-    target: 'SYNERGY_WEB_STUDIO',
-    type: isError ? 'POST_RESULT' : 'PROGRESS_UPDATE',
-    message,
-    success: !isError,
-    error: isError ? message : undefined,
+// Broadcasts a message to all open Synergy Web App tabs
+function notifySynergyTabs(message, isError = false, extra = {}) {
+  chrome.tabs.query({}, (tabs) => {
+    if (!tabs || tabs.length === 0) return;
+    tabs.forEach((tab) => {
+      const url = tab.url || '';
+      if (
+        url.includes('vercel.app') ||
+        url.includes('localhost:3000') ||
+        url.includes('127.0.0.1:3000')
+      ) {
+        chrome.tabs.sendMessage(tab.id, {
+          target: 'SYNERGY_WEB_STUDIO',
+          type: extra.type || (isError ? 'POST_RESULT' : 'PROGRESS_UPDATE'),
+          message,
+          success: !isError,
+          error: isError ? message : undefined,
+          ...extra,
+        }).catch(() => {});
+      }
+    });
   });
 }
