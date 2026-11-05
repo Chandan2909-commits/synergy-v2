@@ -1038,37 +1038,6 @@ export default function ContentStudioPage() {
         tagBadge={`${business?.name || 'Business'} • Creative Studio`}
         title="Custom HTML Code-to-Carousel Studio"
         description="Write or paste custom HTML/CSS code per slide, preview live in real-time, and compile to crisp 2x Retina PNGs for immediate multi-platform publishing."
-        primaryAction={
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setIsInstagramModalOpen(true)}
-              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 via-rose-600 to-amber-600 text-white font-bold text-xs shadow-md hover:opacity-95 transition-all flex items-center gap-1.5"
-              title="Post directly to Instagram using Playwright browser automation"
-            >
-              <Smartphone className="w-3.5 h-3.5" />
-              <span>⚡ Auto-Post IG</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleCompileCarousel}
-              disabled={isCompiling}
-              className="btn-hero-primary flex items-center gap-1.5"
-            >
-              <Play className="w-3.5 h-3.5 fill-current" />
-              <span>{isCompiling ? 'Rasterizing...' : `Compile All (${codeSlides.length})`}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setIsPublishModalOpen(true)}
-              disabled={isCompiling}
-              className="btn-hero-secondary flex items-center gap-1.5"
-            >
-              <Send className="w-3.5 h-3.5" />
-              <span>Post / Schedule</span>
-            </button>
-          </div>
-        }
       />
 
       {/* ========================================================================

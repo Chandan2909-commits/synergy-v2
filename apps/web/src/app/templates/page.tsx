@@ -510,37 +510,6 @@ export default function TemplatesPage() {
         tagBadge={`${business?.name || 'Business'} • Creative Production`}
         title="Carousel Templates Library & Visual Studio"
         description="Explore our in-house collection of high-converting social carousel templates. Generate tailored slide copy with AI while preserving pixel-perfect template styling, compile to 2x Retina PNGs, and publish directly."
-        primaryAction={
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setIsInstagramModalOpen(true)}
-              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-purple-600 via-rose-600 to-amber-600 text-white font-bold text-xs shadow-md hover:opacity-95 transition-all flex items-center gap-1.5"
-              title="Post directly to Instagram using Playwright browser automation"
-            >
-              <Smartphone className="w-3.5 h-3.5" />
-              <span>⚡ Auto-Post IG</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleCompileSlides}
-              disabled={isCompiling}
-              className="btn-hero-primary flex items-center gap-1.5"
-            >
-              <Play className="w-3.5 h-3.5 fill-current" />
-              <span>{isCompiling ? 'Compiling...' : 'Compile All Slides'}</span>
-            </button>
-            <button
-              type="button"
-              onClick={handleOpenPublishModal}
-              disabled={isCompiling}
-              className="btn-hero-secondary flex items-center gap-1.5"
-            >
-              <Send className="w-3.5 h-3.5" />
-              <span>Post / Schedule</span>
-            </button>
-          </div>
-        }
       />
 
       {/* ========================================================================
@@ -642,61 +611,7 @@ export default function TemplatesPage() {
       {/* ========================================================================
           SECTION 2: LIVE VISUAL EDITOR & REAL-TIME PREVIEW
           ======================================================================== */}
-      <div id="template-editor-section" className="pt-4 space-y-4">
-        {/* Editor Title & Slide Navigator Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-gradient-to-r from-slate-900 via-neutral-900 to-blue-950 p-5 rounded-2xl text-white shadow-lg">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center text-blue-400">
-              <Palette className="w-5 h-5" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="font-heading font-extrabold text-base tracking-tight">
-                  Editing: {currentTemplate.name}
-                </h2>
-                <span className="text-[10px] font-mono uppercase bg-blue-500/20 text-blue-300 border border-blue-400/30 px-2 py-0.5 rounded-full font-bold">
-                  {currentTemplate.badge}
-                </span>
-              </div>
-              <p className="text-xs text-slate-300 mt-0.5">
-                Customize content fields on the left. Watch the live preview update in real time on the right.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setIsInstagramModalOpen(true)}
-              className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-purple-600 via-rose-600 to-amber-600 text-white font-bold text-xs shadow-md hover:opacity-95 transition-all flex items-center gap-1.5"
-              title="Post directly to Instagram with Playwright browser automation"
-            >
-              <Smartphone className="w-3.5 h-3.5" />
-              <span>⚡ Auto-Post IG</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleCompileSlides}
-              disabled={isCompiling}
-              className="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs transition-all shadow-md flex items-center gap-1.5 disabled:opacity-50"
-            >
-              <Play className="w-3.5 h-3.5 fill-current" />
-              <span>{isCompiling ? 'Rasterizing...' : 'Compile All Slides'}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handleOpenPublishModal}
-              disabled={isCompiling}
-              className="px-3.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/20 font-semibold text-xs transition-all flex items-center gap-1.5"
-            >
-              <Send className="w-3.5 h-3.5" />
-              <span>Post / Schedule</span>
-            </button>
-          </div>
-        </div>
-
+      <div id="template-editor-section" className="pt-2 space-y-4">
         {/* 2-Column Studio Grid: Left Form (7 cols), Right Preview (5 cols) */}
         <div className="grid grid-cols-12 gap-6 items-start">
           {/* Left Column: Slide Tabs + Field Editor */}
