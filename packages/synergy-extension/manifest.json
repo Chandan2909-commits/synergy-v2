@@ -1,0 +1,54 @@
+{
+  "manifest_version": 3,
+  "name": "Synergy Social Assistant",
+  "version": "1.0.0",
+  "description": "Autonomous Instagram carousel publishing companion for Synergy OS.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "tabs",
+    "cookies",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://www.instagram.com/*",
+    "https://*.vercel.app/*",
+    "http://localhost:3000/*",
+    "http://127.0.0.1:3000/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.vercel.app/*",
+        "http://localhost:3000/*",
+        "http://127.0.0.1:3000/*"
+      ],
+      "js": ["synergy-bridge-client.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://www.instagram.com/*"
+      ],
+      "js": ["instagram-injector.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_title": "Synergy Social Assistant",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

@@ -22,6 +22,10 @@ import {
   Wifi,
   WifiOff,
   Terminal,
+  Download,
+  Puzzle,
+  Shield,
+  ArrowRight,
 } from 'lucide-react';
 
 interface InstagramAutomationModalProps {
@@ -49,6 +53,17 @@ export function InstagramAutomationModal({
     lastPostAt: string | null;
   } | null>(null);
 
+  // Flow & Mode Selection
+  const [activeMode, setActiveMode] = useState<'extension' | 'bridge'>('extension');
+
+  // Chrome Extension State
+  const [extensionDetected, setExtensionDetected] = useState<boolean>(false);
+  const [extensionVersion, setExtensionVersion] = useState<string | null>(null);
+  const [hasInstagramSession, setHasInstagramSession] = useState<boolean | null>(null);
+  const [isVerifyingFlow, setIsVerifyingFlow] = useState<boolean>(false);
+  const [verificationStatus, setVerificationStatus] = useState<'idle' | 'verified' | 'no_session' | 'not_installed' | 'failed'>('idle');
+
+  // Local Companion Bridge State
   const [bridgeConnected, setBridgeConnected] = useState<boolean | null>(null);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [isLoadingStatus, setIsLoadingStatus] = useState(false);
@@ -56,7 +71,7 @@ export function InstagramAutomationModal({
   const [isPublishing, setIsPublishing] = useState(false);
 
   // Settings
-  const [isHeadless, setIsHeadless] = useState(false); // Default visible so user can see it!
+  const [isHeadless, setIsHeadless] = useState(false);
   const [isStealth, setIsStealth] = useState(true);
   const [forcePublish, setForcePublish] = useState(false);
 
@@ -77,10 +92,10 @@ export function InstagramAutomationModal({
     setIsLoadingStatus(true);
     let bridgeOk = false;
 
-    // 1. First probe local companion bridge at http://127.0.0.1:4545/status
+    // 1. Probe local companion bridge at http://127.0.0.1:4545/status
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2000);
+      const timeoutId = setTimeout(() => controller.abort(), 1500);
       const bridgeRes = await fetch('http://127.0.0.1:4545/status', {
         signal: controller.signal,
       });
@@ -107,7 +122,7 @@ export function InstagramAutomationModal({
 
     if (!bridgeOk) {
       setBridgeConnected(false);
-      // 2. Fall back to internal API check to identify if running on cloud/Vercel or local Next dev
+      // 2. Fall back to internal API check
       try {
         const res = await fetch('/api/instagram');
         const data = await res.json();
@@ -129,16 +144,105 @@ export function InstagramAutomationModal({
     setIsLoadingStatus(false);
   };
 
+  // Listen to Chrome Extension Handshake via postMessage
   useEffect(() => {
-    if (isOpen) {
-      checkStatus();
-      setLogs([]);
-      setErrorMsg(null);
-      setSuccessMsg(null);
+    if (!isOpen) return;
+
+    // Initial check for data-synergy-extension attribute on <html>
+    const extAttr = document.documentElement.getAttribute('data-synergy-extension');
+    if (extAttr) {
+      setExtensionDetected(true);
+      setExtensionVersion(extAttr);
     }
+
+    const handleMessage = (event: MessageEvent) => {
+      if (!event.data || event.data.source !== 'SYNERGY_EXTENSION') return;
+
+      const { type, message, success, error, version, hasInstagramSession: igSession } = event.data;
+
+      if (type === 'PONG') {
+        setExtensionDetected(true);
+        if (version) setExtensionVersion(version);
+      }
+
+      if (type === 'VERIFY_RESULT') {
+        setIsVerifyingFlow(false);
+        if (success) {
+          setExtensionDetected(true);
+          if (version) setExtensionVersion(version);
+          setHasInstagramSession(Boolean(igSession));
+          if (igSession) {
+            setVerificationStatus('verified');
+            setSuccessMsg('🎉 Flow Integrity Verified! Extension is connected with an active Instagram session.');
+          } else {
+            setVerificationStatus('no_session');
+            setErrorMsg('Extension connected, but no active Instagram login found in Chrome. Please open instagram.com, log in, and verify again.');
+          }
+        } else {
+          setVerificationStatus('failed');
+          setErrorMsg(error || 'Extension integrity verification failed.');
+        }
+      }
+
+      if (type === 'PROGRESS_UPDATE' && message) {
+        setLogs((prev) => [...prev, message]);
+      }
+
+      if (type === 'POST_RESULT') {
+        setIsPublishing(false);
+        if (success) {
+          setLogs((prev) => [...prev, '🎉 Post published successfully to Instagram!']);
+          setSuccessMsg('🎉 Carousel successfully published to Instagram via Synergy Social Assistant!');
+          checkStatus();
+        } else {
+          setErrorMsg(error || 'Failed to complete Instagram post via extension.');
+          if (message) setLogs((prev) => [...prev, `❌ ${message}`]);
+        }
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+
+    // Send PING to query extension presence
+    window.postMessage({ source: 'SYNERGY_WEB_STUDIO', type: 'PING' }, '*');
+
+    // Also run status check
+    checkStatus();
+    setLogs([]);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    return () => {
+      window.removeEventListener('message', handleMessage);
+    };
   }, [isOpen]);
 
-  // Trigger login session popup
+  // Trigger Extension Flow Integrity Check
+  const handleVerifyFlowIntegrity = () => {
+    setIsVerifyingFlow(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    setVerificationStatus('idle');
+
+    // Send verify request to extension content script
+    window.postMessage({ source: 'SYNERGY_WEB_STUDIO', type: 'VERIFY_FLOW' }, '*');
+
+    // Timeout safety fallback if extension isn't installed
+    setTimeout(() => {
+      setIsVerifyingFlow((currentlyVerifying) => {
+        if (currentlyVerifying) {
+          setVerificationStatus('not_installed');
+          setErrorMsg(
+            'Extension not responding. Please make sure you unzipped the extension, loaded it in chrome://extensions, and refreshed this page.'
+          );
+          return false;
+        }
+        return currentlyVerifying;
+      });
+    }, 3500);
+  };
+
+  // Launch Desktop Chrome Login (Bridge Mode)
   const handleLaunchLogin = async () => {
     setIsLaunchingLogin(true);
     setErrorMsg(null);
@@ -158,7 +262,6 @@ export function InstagramAutomationModal({
           '🌐 Chrome window opened on your desktop! Please log into Instagram manually, complete 2FA, and return here.',
         ]);
 
-        // Poll for auth.json creation
         let attempts = 0;
         const interval = setInterval(async () => {
           attempts++;
@@ -193,8 +296,7 @@ export function InstagramAutomationModal({
       }
     } catch (err: any) {
       setErrorMsg(
-        err.message ||
-          'Failed to communicate with login endpoint. Please make sure the local bridge is running.'
+        err.message || 'Failed to communicate with login endpoint. Please make sure the local bridge is running.'
       );
       setIsLaunchingLogin(false);
     }
@@ -207,7 +309,7 @@ export function InstagramAutomationModal({
 
     let slidesToPublish = compiledSlides;
 
-    // If no compiled slides provided, trigger compilation if available
+    // Trigger compilation if needed
     if (slidesToPublish.length === 0 && onCompileRequest) {
       setLogs((prev) => [...prev, '⚙️ Compiling slides to 2x Retina PNGs...']);
       try {
@@ -227,6 +329,34 @@ export function InstagramAutomationModal({
     }
 
     setIsPublishing(true);
+
+    // =========================================================================
+    // BRANCH A: Chrome Extension Publishing (Primary zero-code method)
+    // =========================================================================
+    if (activeMode === 'extension' && (extensionDetected || verificationStatus === 'verified')) {
+      setLogs((prev) => [
+        ...prev,
+        `🚀 Dispatching carousel (${slidesToPublish.length} slides) to Synergy Social Assistant Extension...`,
+      ]);
+
+      window.postMessage(
+        {
+          source: 'SYNERGY_WEB_STUDIO',
+          type: 'PUBLISH_INSTAGRAM',
+          payload: {
+            slides: slidesToPublish,
+            caption,
+            stealthMode: isStealth,
+          },
+        },
+        '*'
+      );
+      return;
+    }
+
+    // =========================================================================
+    // BRANCH B: Local Companion Bridge / Serverless API Fallback
+    // =========================================================================
     setLogs((prev) => [
       ...prev,
       `🚀 Initializing Playwright automation (${slidesToPublish.length} slide carousel via ${
@@ -262,8 +392,7 @@ export function InstagramAutomationModal({
       }
     } catch (err: any) {
       setErrorMsg(
-        err.message ||
-          'Failed to reach execution runner. If using the hosted website, ensure "npm run ig:bridge" is active.'
+        err.message || 'Failed to reach execution runner. If using the hosted website, ensure the extension or bridge is active.'
       );
     } finally {
       setIsPublishing(false);
@@ -271,6 +400,8 @@ export function InstagramAutomationModal({
   };
 
   if (!isOpen) return null;
+
+  const isExtensionReady = extensionDetected && verificationStatus === 'verified';
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
@@ -287,11 +418,11 @@ export function InstagramAutomationModal({
                   Instagram Automated Poster
                 </h3>
                 <span className="text-[10px] font-mono uppercase bg-purple-100 text-purple-800 border border-purple-200 px-2 py-0.5 rounded-full font-bold">
-                  Playwright Engine
+                  Residential Engine
                 </span>
               </div>
               <p className="text-xs text-slate-500">
-                Direct browser automation with human-like delays and daily velocity limits.
+                Post carousels with human-like delays, anti-ban protections, and zero datacenter flags.
               </p>
             </div>
           </div>
@@ -305,91 +436,228 @@ export function InstagramAutomationModal({
           </button>
         </div>
 
-        {/* Local Companion Bridge State */}
-        {bridgeConnected === true ? (
-          <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 flex flex-wrap items-center justify-between gap-2 text-xs">
-            <div className="flex items-center gap-2">
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-              </span>
-              <div className="flex items-center gap-1.5 font-bold text-emerald-900">
-                <Wifi className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Local Companion Bridge Connected (127.0.0.1:4545)</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-full border border-emerald-300">
-                🛡️ Residential IP Active
-              </span>
-              <button
-                type="button"
-                onClick={checkStatus}
-                disabled={isLoadingStatus}
-                className="text-emerald-700 hover:text-emerald-900 p-1 rounded hover:bg-emerald-100"
-                title="Refresh Bridge Connection"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${isLoadingStatus ? 'animate-spin' : ''}`} />
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="p-4 rounded-xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white space-y-3 shadow-lg border border-slate-700/80">
-            <div className="flex items-start justify-between gap-2">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-purple-500/20 border border-purple-400/30 flex items-center justify-center text-purple-300 shrink-0">
-                  <Terminal className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-xs text-white flex items-center gap-1.5">
-                    <span>Connect Local Engine to Auto-Post</span>
-                    <span className="text-[10px] font-mono px-1.5 py-0.2 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded">
-                      Required on Cloud
-                    </span>
-                  </h4>
-                  <p className="text-[11px] text-slate-300 leading-relaxed mt-0.5">
-                    Cloud servers get shadowbanned by Instagram. Synergy executes from your own workstation using your residential IP.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={checkStatus}
-                disabled={isLoadingStatus}
-                className="px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold text-white flex items-center gap-1 transition-all shrink-0 border border-white/10"
-              >
-                <RefreshCw className={`w-3 h-3 ${isLoadingStatus ? 'animate-spin' : ''}`} />
-                <span>{isLoadingStatus ? 'Checking...' : 'Check Bridge'}</span>
-              </button>
-            </div>
+        {/* Mode Selector Tabs (Extension vs Terminal Bridge) */}
+        <div className="flex items-center justify-between border-b border-slate-200 pb-2 text-xs">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveMode('extension')}
+              className={`px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5 transition-all ${
+                activeMode === 'extension'
+                  ? 'bg-purple-600 text-white shadow-sm'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              <Puzzle className="w-3.5 h-3.5" />
+              <span>Chrome Extension (Zero Code)</span>
+              {isExtensionReady && (
+                <span className="w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-purple-600"></span>
+              )}
+            </button>
 
-            <div className="bg-black/60 rounded-lg p-2.5 flex items-center justify-between border border-white/10 font-mono text-xs">
-              <div className="flex items-center gap-2 text-slate-200">
-                <span className="text-emerald-400 font-bold">$</span>
-                <span className="text-purple-300 font-semibold">npm run ig:bridge</span>
+            <button
+              type="button"
+              onClick={() => setActiveMode('bridge')}
+              className={`px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5 transition-all ${
+                activeMode === 'bridge'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              <Terminal className="w-3.5 h-3.5" />
+              <span>Local Bridge (Terminal)</span>
+              {bridgeConnected && (
+                <span className="w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-slate-900"></span>
+              )}
+            </button>
+          </div>
+
+          <span className="text-[11px] font-semibold text-slate-400">
+            {activeMode === 'extension' ? 'Recommended for Customers' : 'For Developers'}
+          </span>
+        </div>
+
+        {/* ====================================================================
+            MODE 1: CHROME EXTENSION FLOW (Zero-code package for end-users)
+            ==================================================================== */}
+        {activeMode === 'extension' && (
+          <div className="space-y-3">
+            {isExtensionReady ? (
+              /* Verified Banner */
+              <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-emerald-900 font-bold">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Synergy Social Assistant Active (v{extensionVersion || '1.0.0'})</span>
+                  </div>
+                  <span className="text-[10px] font-mono font-bold bg-emerald-200/60 text-emerald-800 px-2 py-0.5 rounded-full">
+                    Flow Integrity Verified
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 pt-1 text-[11px] text-emerald-800">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    <span>Instagram Session: <strong>Logged In</strong></span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                    <span>IP Origin: <strong>Residential (Natural Browser)</strong></span>
+                  </div>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => copyCommand('npm run ig:bridge', 'bridge')}
-                className="px-3 py-1 rounded-md bg-purple-600 hover:bg-purple-500 text-white text-[11px] font-sans font-bold flex items-center gap-1 transition-colors shadow-sm"
-              >
-                {copiedKey === 'bridge' ? (
-                  <>
-                    <Check className="w-3.5 h-3.5 text-emerald-300" />
-                    <span>Copied!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3.5 h-3.5" />
-                    <span>Copy Command</span>
-                  </>
-                )}
-              </button>
-            </div>
-            <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5">
-              <span>Run once in your local project folder • Keep terminal open while posting</span>
-              <span className="font-mono text-slate-500">Port: 4545</span>
-            </div>
+            ) : (
+              /* Download & Unpack Installation Card */
+              <div className="p-4 rounded-xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white space-y-3 shadow-lg border border-slate-700/80">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-purple-500/20 border border-purple-400/30 flex items-center justify-center text-purple-300 shrink-0">
+                      <Puzzle className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-xs text-white flex items-center gap-1.5">
+                        <span>Install Synergy Social Assistant</span>
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 bg-purple-500/30 text-purple-200 border border-purple-400/30 rounded">
+                          1-Minute Setup
+                        </span>
+                      </h4>
+                      <p className="text-[11px] text-slate-300 leading-relaxed mt-0.5">
+                        Download the extension, unpack it, and automate Instagram posts safely from your own browser.
+                      </p>
+                    </div>
+                  </div>
+
+                  <a
+                    href="/downloads/synergy-social-assistant.zip"
+                    download="synergy-social-assistant.zip"
+                    className="px-3.5 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-rose-600 hover:from-purple-500 hover:to-rose-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shrink-0 transition-all hover:scale-[1.02]"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download Extension (.zip)</span>
+                  </a>
+                </div>
+
+                {/* 3 Step Instruction Guide */}
+                <div className="bg-black/40 rounded-lg p-3 text-xs border border-white/10 space-y-2">
+                  <div className="text-[11px] font-bold text-purple-300 uppercase tracking-wider">
+                    How to Load the Extension:
+                  </div>
+                  <ol className="list-decimal list-inside space-y-1 text-[11px] text-slate-300 leading-relaxed">
+                    <li>Download &amp; <strong>unzip</strong> the downloaded file on your computer.</li>
+                    <li>
+                      Open a new tab and go to{' '}
+                      <code className="text-amber-300 bg-white/10 px-1.5 py-0.5 rounded font-mono">
+                        chrome://extensions
+                      </code>
+                    </li>
+                    <li>
+                      Turn ON <strong>&quot;Developer mode&quot;</strong> (top right toggle) &rarr; click{' '}
+                      <strong>&quot;Load unpacked&quot;</strong> and choose the unzipped folder.
+                    </li>
+                  </ol>
+                </div>
+
+                {/* Verification Action */}
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-[11px] text-slate-400">
+                    Once loaded, verify the connection here:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleVerifyFlowIntegrity}
+                    disabled={isVerifyingFlow}
+                    className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm disabled:opacity-50"
+                  >
+                    <Shield className={`w-3.5 h-3.5 ${isVerifyingFlow ? 'animate-spin' : ''}`} />
+                    <span>{isVerifyingFlow ? 'Verifying Integrity...' : '🛡️ Verify Flow Integrity'}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ====================================================================
+            MODE 2: TERMINAL COMPANION BRIDGE FLOW (Developer / Local Runner)
+            ==================================================================== */}
+        {activeMode === 'bridge' && (
+          <div className="space-y-3">
+            {bridgeConnected === true ? (
+              <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                  </span>
+                  <div className="flex items-center gap-1.5 font-bold text-emerald-900">
+                    <Wifi className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Local Companion Bridge Connected (127.0.0.1:4545)</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-semibold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-full border border-emerald-300">
+                    🛡️ Residential IP Active
+                  </span>
+                  <button
+                    type="button"
+                    onClick={checkStatus}
+                    disabled={isLoadingStatus}
+                    className="text-emerald-700 hover:text-emerald-900 p-1 rounded hover:bg-emerald-100"
+                    title="Refresh Bridge Connection"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isLoadingStatus ? 'animate-spin' : ''}`} />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="p-4 rounded-xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white space-y-3 shadow-lg border border-slate-700/80">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-purple-500/20 border border-purple-400/30 flex items-center justify-center text-purple-300 shrink-0">
+                      <Terminal className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="font-bold text-xs text-white">Local Terminal Bridge Runner</h4>
+                      <p className="text-[11px] text-slate-300 leading-relaxed mt-0.5">
+                        Run the companion bridge from your terminal to launch Playwright on your desktop.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={checkStatus}
+                    disabled={isLoadingStatus}
+                    className="px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-xs font-semibold text-white flex items-center gap-1 transition-all shrink-0 border border-white/10"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${isLoadingStatus ? 'animate-spin' : ''}`} />
+                    <span>{isLoadingStatus ? 'Checking...' : 'Check Bridge'}</span>
+                  </button>
+                </div>
+
+                <div className="bg-black/60 rounded-lg p-2.5 flex items-center justify-between border border-white/10 font-mono text-xs">
+                  <div className="flex items-center gap-2 text-slate-200">
+                    <span className="text-emerald-400 font-bold">$</span>
+                    <span className="text-purple-300 font-semibold">npm run ig:bridge</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => copyCommand('npm run ig:bridge', 'bridge')}
+                    className="px-3 py-1 rounded-md bg-purple-600 hover:bg-purple-500 text-white text-[11px] font-sans font-bold flex items-center gap-1 transition-colors shadow-sm"
+                  >
+                    {copiedKey === 'bridge' ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-300" />
+                        <span>Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy Command</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -413,32 +681,46 @@ export function InstagramAutomationModal({
             </div>
 
             <div className="flex items-center justify-between">
-              {status?.hasAuthSession ? (
+              {isExtensionReady || status?.hasAuthSession ? (
                 <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg">
                   <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Session Active (auth.json)</span>
+                  <span>
+                    {isExtensionReady ? 'Extension Session Active' : 'Session Active (auth.json)'}
+                  </span>
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-lg">
                   <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
-                  <span>No Session Found</span>
+                  <span>No Session Verified</span>
                 </div>
               )}
 
-              <button
-                type="button"
-                onClick={handleLaunchLogin}
-                disabled={isLaunchingLogin || (!bridgeConnected && Boolean(status?.isCloud))}
-                className="btn btn-secondary text-xs px-2.5 py-1 flex items-center gap-1 disabled:opacity-50"
-                title={
-                  !bridgeConnected && Boolean(status?.isCloud)
-                    ? 'Start local bridge first to launch desktop Chrome'
-                    : 'Launch Chrome to log in'
-                }
-              >
-                <Lock className="w-3 h-3 text-purple-600" />
-                <span>{isLaunchingLogin ? 'Waiting for Login...' : 'Log In / Refresh'}</span>
-              </button>
+              {activeMode === 'extension' ? (
+                <a
+                  href="https://www.instagram.com/"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="btn btn-secondary text-xs px-2.5 py-1 flex items-center gap-1"
+                >
+                  <ExternalLink className="w-3 h-3 text-purple-600" />
+                  <span>Open Instagram</span>
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleLaunchLogin}
+                  disabled={isLaunchingLogin || (!bridgeConnected && Boolean(status?.isCloud))}
+                  className="btn btn-secondary text-xs px-2.5 py-1 flex items-center gap-1 disabled:opacity-50"
+                  title={
+                    !bridgeConnected && Boolean(status?.isCloud)
+                      ? 'Start local bridge first to launch desktop Chrome'
+                      : 'Launch Chrome to log in'
+                  }
+                >
+                  <Lock className="w-3 h-3 text-purple-600" />
+                  <span>{isLaunchingLogin ? 'Waiting for Login...' : 'Log In / Refresh'}</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -448,9 +730,7 @@ export function InstagramAutomationModal({
               <span className="text-[11px] font-bold uppercase text-slate-600 tracking-wider">
                 Anti-Flag Daily Velocity
               </span>
-              <span className="text-[10px] font-mono text-slate-500">
-                Safe: ≤ 2/day
-              </span>
+              <span className="text-[10px] font-mono text-slate-500">Safe: ≤ 2/day</span>
             </div>
 
             <div className="flex items-center justify-between">
@@ -520,9 +800,9 @@ export function InstagramAutomationModal({
                 className="mt-0.5 rounded text-purple-600 focus:ring-purple-500"
               />
               <div>
-                <span className="font-bold text-neutral-800 block">Visible Chrome Window</span>
+                <span className="font-bold text-neutral-800 block">Visible Execution Tab</span>
                 <span className="text-[11px] text-slate-500 block leading-tight">
-                  Watch Playwright open, upload, type &amp; post on your screen
+                  Watch carousel upload, human typing &amp; post creation live
                 </span>
               </div>
             </label>
@@ -538,7 +818,7 @@ export function InstagramAutomationModal({
               <div>
                 <span className="font-bold text-neutral-800 block">Human Delay Profile</span>
                 <span className="text-[11px] text-slate-500 block leading-tight">
-                  Simulates random typing speeds (30-85ms) &amp; 3-5s review pauses
+                  Randomized keystroke jitter (35-70ms) &amp; natural review pauses
                 </span>
               </div>
             </label>
@@ -606,8 +886,8 @@ export function InstagramAutomationModal({
             onClick={handlePublish}
             disabled={
               isPublishing ||
-              (!bridgeConnected && Boolean(status?.isCloud)) ||
-              (!status?.hasAuthSession && !isLaunchingLogin)
+              (activeMode === 'extension' && !isExtensionReady && !extensionDetected) ||
+              (activeMode === 'bridge' && !bridgeConnected && Boolean(status?.isCloud))
             }
             className="btn btn-primary text-xs flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 via-rose-600 to-amber-600 hover:from-purple-500 hover:to-amber-500 text-white font-bold shadow-md disabled:opacity-50"
           >
@@ -615,8 +895,8 @@ export function InstagramAutomationModal({
             <span>
               {isPublishing
                 ? 'Publishing to Instagram...'
-                : !bridgeConnected && Boolean(status?.isCloud)
-                ? 'Start Local Bridge to Post'
+                : activeMode === 'extension' && !isExtensionReady && !extensionDetected
+                ? 'Install & Verify Extension'
                 : '⚡ Launch Instagram Post'}
             </span>
           </button>
